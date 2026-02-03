@@ -1,0 +1,18 @@
+#!/bin/sh -l 
+
+#------ qsub option --------# 
+#PBS -q lecture-g
+#PBS -l select=2:mpiprocs=1
+#PBS -l walltime=10:00 
+#PBS -W group_list=gq61 
+#PBS -j oe
+
+#------- Program execution -------# 
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+cd ${PBS_O_WORKDIR} 
+mpirun ./gallope <gallope.in >gallope.out.std

@@ -1,0 +1,204 @@
+program gallope
+  use mp, only: init_mp, finish_mp, proc0
+  use cufftmp, only: init_cuda, init_cuFFTmp, finish_cuFFTmp
+  use params, only: init_params
+  use terminate, only: init_terminate, monitor_terminate, check_terminate, terminated
+  use grid, only: init_grid, finish_grid
+  use time, only: init_time, tt, nstep, dt
+  use fields, only: init_fields, finish_fields
+  use dealias, only: init_filter, finish_filter
+  use diagnostics_common, only: write_intvl, write_intvl_2D, write_intvl_3D
+  use diagnostics_common, only: write_intvl_kpar, write_intvl_SF2
+  use diagnostics_common, only: write_intvl_nltrans
+  use diagnostics, only: init_diagnostics, finish_diagnostics, loop_diagnostics, &
+                         loop_diagnostics_2D, loop_diagnostics_kpar, loop_diagnostics_SF2, &
+                         loop_diagnostics_nltrans
+  use params, only: save_restart_intvl
+  use time_stamp, only: put_time_stamp, &
+                        timer_total, timer_init, timer_finish, &
+                        timer_diagnostics_total, timer_diagnostics_SF2, timer_diagnostics_kpar, timer_diagnostics_nltrans, &
+                        timer_io_total, timer_io_2D, timer_io_3D, timer_save_restart, &
+                        timer_advance, timer_nonlinear_terms, & 
+                        timer_fft, timer_fft_prepost, timer_force
+  use model_specific, only :init_model_specific
+  use io, only: loop_io_3D, save_restart
+  use advance, only :solve, allocate_advance, deallocate_advance
+  implicit none
+
+  integer :: istep
+
+  call init_params
+  call init_mp
+  call banner
+  call init_cuda
+  call init_terminate
+  call init_grid
+  call init_time
+
+  if (proc0) then
+    write(*, '("Solving ")', advance='no')
+    write(*, '(a)') trim(_MODEL_)
+  endif
+
+  if (proc0) call put_time_stamp(timer_total)
+
+  if (proc0) call put_time_stamp(timer_init)
+  call init_cuFFTmp
+  call init_fields
+  call init_model_specific
+  call init_filter
+  call init_diagnostics
+  if (proc0) call put_time_stamp(timer_init)
+  if (proc0) write(*, '("Initialization done")')
+  !
+  if(tt == 0.d0) then ! skip when restarting
+    if(write_intvl         > 0.d0) call loop_diagnostics
+    if(write_intvl_2D      > 0.d0) call loop_diagnostics_2D
+    ! if(write_intvl_3D      > 0.d0) call loop_io_3D
+    ! if(write_intvl_kpar    > 0.d0) call loop_diagnostics_kpar
+    ! if(write_intvl_SF2     > 0.d0) call loop_diagnostics_SF2 
+    ! if(write_intvl_nltrans > 0.d0) call loop_diagnostics_nltrans
+  endif
+
+  do istep = 1, nstep
+    if (proc0 .and. istep == 1) write(*, '("Starting the main loop...")')
+    call solve
+
+    if(check_write_now(write_intvl        ) .or. &
+       check_write_now(write_intvl_2D     ) .or. &
+       ! check_write_now(write_intvl_3D     ) .or. &
+       ! check_write_now(write_intvl_kpar   ) .or. &
+       ! check_write_now(write_intvl_SF2    ) .or. &
+       ! check_write_now(write_intvl_nltrans) .or. &
+       check_write_now(save_restart_intvl )) then
+
+       call deallocate_advance
+
+       if(check_write_now(write_intvl        )) call loop_diagnostics         ! output for time history & spectra
+       if(check_write_now(write_intvl_2D     )) call loop_diagnostics_2D      ! output for cross seciton of fields
+       ! if(check_write_now(write_intvl_3D     )) call loop_io_3D               ! output for full 3D fields
+       ! if(check_write_now(write_intvl_kpar   )) call loop_diagnostics_kpar    ! output for kpar & delta b/b0 using k-filtering
+       ! if(check_write_now(write_intvl_SF2    )) call loop_diagnostics_SF2     ! output for 2nd order structure function
+       ! if(check_write_now(write_intvl_nltrans)) call loop_diagnostics_nltrans ! output for shell-to-shell transfer function
+       if(check_write_now(save_restart_intvl )) call save_restart
+
+       call allocate_advance
+    endif
+
+    if(check_write_now(write_intvl) .and. proc0) write(*, "('step = ', I10, '/', I10, ',  time = ', f15.8)") istep, nstep, tt
+
+    if(monitor_terminate) then
+      call check_terminate
+      if(terminated) exit
+    endif
+  enddo
+
+  call deallocate_advance
+  if (proc0) write(*, '("Finished the main loop :)")')
+
+  call save_restart
+  if(proc0) print *, 'Finish save_restart'
+
+  if(write_intvl         > 0.d0) call loop_diagnostics
+  if(proc0) print *, 'Finish loop_diagnostics'
+  if(write_intvl_2D      > 0.d0) call loop_diagnostics_2D
+  if(proc0) print *, 'Finish loop_diagnostics_2D'
+  ! if(write_intvl_3D      > 0.d0) call loop_io_3D
+  ! if(proc0) print *, 'Finish loop_diagnostics_3D'
+  ! if(write_intvl_kpar    > 0.d0) call loop_diagnostics_kpar
+  ! if(proc0) print *, 'Finish loop_diagnostics_kpar'
+  ! if(write_intvl_SF2     > 0.d0) call loop_diagnostics_SF2
+  ! if(proc0) print *, 'Finish loop_diagnostics_SF2'
+  ! if(write_intvl_nltrans > 0.d0) call loop_diagnostics_nltrans
+  ! if(proc0) print *, 'Finish loop_diagnostics_nltrans'
+
+  if (proc0) call put_time_stamp(timer_init)
+  call finish_filter
+  call finish_fields
+  call finish_cuFFTmp
+  call finish_diagnostics
+  if (proc0) call put_time_stamp(timer_init)
+  !
+  if (proc0) call put_time_stamp(timer_total)
+
+  if (proc0) then
+    print '(/,'' Initialization'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
+          &'' Advance steps'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
+          &''    nonlinear terms'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',''  ('',f4.1,''% in Advance steps)'',/, &
+          &''    FFT'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',''  ('',f4.1,''% in Advance steps)'',/, &
+          &''    FFT pre post-processing'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',''  ('',f4.1,''% in Advance steps)'',/, &
+          &''    force'',T29,0pf9.3,'' min'',T40,2pf5.1,'' %'',''  ('',f4.1,''% in Advance steps)'',/, &
+          &'' Diagnostics'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
+          &''    SF2'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
+          &''    kpar'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
+          &''    shell-to-shell transfer'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
+          &'' IO'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
+          &''    2D'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
+          &''    3D'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
+          &'' Save restart'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/,/, &
+          &'' Finish'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/,/, &
+          &'' total from timer is:'',T24,0pf10.3,'' min'',/, &
+          &'' (init + adv + diag + io + restart + finish:'',T45,2pf5.1,'' %)'',/)', &
+          timer_init(1)/60.,timer_init(1)/timer_total(1), &
+          timer_advance(1)/60.,timer_advance(1)/timer_total(1), &
+            timer_nonlinear_terms(1)/60.,timer_nonlinear_terms(1)/timer_total(1),timer_nonlinear_terms(1)/timer_advance(1), &
+            timer_fft(1)/60.,timer_fft(1)/timer_total(1),timer_fft(1)/timer_advance(1), &
+            timer_fft_prepost(1)/60.,timer_fft_prepost(1)/timer_total(1),timer_fft_prepost(1)/timer_advance(1), &
+            timer_force(1)/60.,timer_force(1)/timer_total(1),timer_force(1)/timer_advance(1), &
+          timer_diagnostics_total(1)/60.,timer_diagnostics_total(1)/timer_total(1), &
+            timer_diagnostics_SF2(1)/60.,timer_diagnostics_SF2(1)/timer_total(1), &
+            timer_diagnostics_kpar(1)/60.,timer_diagnostics_kpar(1)/timer_total(1), &
+            timer_diagnostics_nltrans(1)/60.,timer_diagnostics_nltrans(1)/timer_total(1), &
+          timer_io_total(1)/60.,timer_io_total(1)/timer_total(1), &
+            timer_io_2D(1)/60.,timer_io_2D(1)/timer_total(1), &
+            timer_io_3D(1)/60.,timer_io_3D(1)/timer_total(1), &
+          timer_save_restart(1)/60.,timer_save_restart(1)/timer_total(1), &
+          timer_finish(1)/60.,timer_finish(1)/timer_total(1), &
+          timer_total(1)/60., &
+          (timer_init(1) + timer_advance(1) + timer_diagnostics_total(1) &
+           + timer_io_total(1) + timer_save_restart(1) + timer_finish(1))/timer_total(1)
+
+    print *, '# of steps advanced', istep-1
+    print '(12X, "Final dt", es15.3)', dt
+  endif
+
+  call finish_grid
+  call finish_mp
+    
+  if(proc0) then
+    print *, '                               '
+    print *, '---  Program completed! ^_^ ---'
+    print *, '                               '
+  endif
+contains
+
+  subroutine banner
+    implicit none
+    integer,dimension(8) :: datetime
+
+    if(proc0) then
+      call date_and_time(VALUES=datetime)
+      print *
+      write(*, "('  -------------------------------------------------------------------- ')", advance='no'); print *
+      write(*, "(' |                                                                    |')", advance='no'); print *
+      write(*, "(' |     Gallope started!                                               |')", advance='no'); print *
+      write(*, "(' |', 36X, ' executed on ', i4, '-', i2, '-', i2, ' ', i2, ':', i2, 2X, ' |')", advance='no') &
+                            datetime(1), datetime(2), datetime(3), datetime(5), datetime(6); print *
+      write(*, "('  -------------------------------------------------------------------- ')", advance='no'); print *
+      print *
+    endif
+  end subroutine banner
+
+
+  function check_write_now(intvl)
+    use time, only: tt, dt
+    implicit none
+    real(8), intent(in) :: intvl
+    logical  :: check_write_now
+    integer, parameter :: i16 = selected_int_kind(16)
+
+    check_write_now = floor(tt/intvl, i16) /= floor((tt+dt)/intvl, i16)
+
+  end function check_write_now
+
+end program gallope

@@ -1,0 +1,7 @@
+F90 = mpif90
+
+NETCDF_INC=-I$(HOME)/work/.local/netcdf-nvhpc/include
+NETCDF_LIB=-L$(HOME)/work/.local/netcdf-nvhpc/lib -L$HOME/work/.local/netcdf-nvhpc/lib -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -lz
+
+FLAGS  = -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp 
+LINKER = -L${NVHPC_ROOT}/compilers/lib -lnvhpcwrapcufft -L${NVHPC_ROOT}/math_libs/lib64/ -lcufftMp -lmpi

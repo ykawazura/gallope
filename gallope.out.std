@@ -1,0 +1,90 @@
+ 
+  -------------------------------------------------------------------- 
+ |                                                                    |
+ |     Gallope started!                                               |
+ |                                     executed on 2026- 1- 7 13:33   |
+  -------------------------------------------------------------------- 
+ 
+ ==========================================
+ MPI processes:     16
+ Nodes:             16
+ GPUs per node:      1
+ ==========================================
+ This run will be terminated when the wall time exceeds  9.50 hours.
+ This run will be terminated when a file named {terminate} is created in the root directory.
+ 
+  nlx  =   1024,    nly  =   1024,    nlz  =    512
+ 
+Solving MHD_INCOMP
+ Restart
+shear is on; tremap = 1.333
+ Reading force_parameters failed
+----------------------------------------------------------------------------
+kx0*vA_x/Omega =  0.00,  ky0*vA_y/Omega =  0.00,  kz0*vA_z/Omega =  0.50
+  (vA is computed by the initial mean magnetic fields.)
+ Lx/lmd_MRI =  4.00,   Ly/lmd_MRI =  8.00,   Lz/lmd_MRI =  2.00
+  (lmd_MRI = 2pi*vA_z/Omega.)
+----------------------------------------------------------------------------
+Initialization done
+Starting the main loop...
+step =        551/    100000,  time =     36.79988937
+step =       1218/    100000,  time =     36.89993937
+step =       1885/    100000,  time =     36.99998937
+step =       2551/    100000,  time =     37.09988937
+step =       3218/    100000,  time =     37.19993937
+step =       3885/    100000,  time =     37.29998937
+ 
+ remapping...
+ 
+step =       4551/    100000,  time =     37.39988937
+step =       5218/    100000,  time =     37.49993937
+step =       5885/    100000,  time =     37.59998937
+step =       6551/    100000,  time =     37.69988937
+step =       7218/    100000,  time =     37.79993937
+step =       7885/    100000,  time =     37.89998937
+step =       8551/    100000,  time =     37.99988937
+step =       9218/    100000,  time =     38.09993937
+step =       9885/    100000,  time =     38.19998937
+step =      10551/    100000,  time =     38.29988937
+step =      11218/    100000,  time =     38.39993937
+step =      11885/    100000,  time =     38.49998937
+step =      12551/    100000,  time =     38.59988937
+step =      13218/    100000,  time =     38.69993937
+ 
+ remapping...
+ 
+step =      13885/    100000,  time =     38.79998937
+ 
+!-------------------------------------------------------------------------------------------------------!
+!  Termination file has been detected. Terminating the simulation and deleting the termination file...  !
+!-------------------------------------------------------------------------------------------------------!
+Finished the main loop :)
+ Finish save_restart
+ Finish loop_diagnostics
+ Finish loop_diagnostics_2D
+
+ Initialization                 0.183 min     0.1 %
+ Advance steps                138.203 min    99.2 %
+    nonlinear terms           124.438 min    89.3 %  (90.0% in Advance steps)
+    FFT                       116.178 min    83.4 %  (84.1% in Advance steps)
+    FFT pre post-processing     4.181 min     3.0 %  ( 3.0% in Advance steps)
+    force                       0.000 m  0.0 %  ( 0.0% in Advance steps)
+ Diagnostics                    0.359 min     0.3 %
+    SF2                         0.000 min     0.0 %
+    kpar                        0.000 min     0.0 %
+    shell-to-shell transfer     0.000 min     0.0 %
+ IO                             0.007 min     0.0 %
+    2D                          0.005 min     0.0 %
+    3D                          0.000 min     0.0 %
+ Save restart                   0.253 min     0.2 %
+
+ Finish                         0.000 min     0.0 %
+
+ total from timer is:     139.299 min
+ (init + adv + diag + io + restart + finish: 99.8 %)
+
+ # of steps advanced        14184
+            Final dt      1.500E-04
+                                
+ ---  Program completed! ^_^ ---
+                                

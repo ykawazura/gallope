@@ -1,0 +1,14 @@
+#=======================================================================
+# Edit this file to change code options 
+#=======================================================================
+
+# Set architecture name; 'arch/$(arch).in' will be included.
+arch = miyabi
+
+# MODEL : 
+# 	MHD_INCOMP     ! incompressible MHD
+# 	RMHD           ! reduced MHD
+MODEL = RMHD
+
+# debug
+DEBG = no

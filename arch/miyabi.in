@@ -1,0 +1,8 @@
+F90 = mpif90
+
+NETCDF_INC=-I$(NETCDF_DIR)/include -I$(NETCDF_FORTRAN_DIR)/include
+NETCDF_LIB=-L$(NETCDF_DIR)/lib -L$(NETCDF_FORTRAN_DIR)/lib -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -lz
+
+FLAGS  = -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp
+#FLAGS  += -gpu=mem:unified
+LINKER = -L${NVHPC_ROOT}/compilers/lib -lnvhpcwrapcufft -L${NVHPC_ROOT}/math_libs/lib64/ -lcufftMp -lmpi
