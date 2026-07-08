@@ -49,7 +49,7 @@ contains
     use grid, only: nlx, nly, nlz_padded
     use fields, only: phi, psi
     use fields, only: phi_old, psi_old
-    use mp, only: sum_reduce
+    use mp, only: sum_reduce, comm_fft, nproc_m, nproc_s
     use time, only: dt
     use time_stamp, only: put_time_stamp, timer_diagnostics_total
     use params, only: zi, &
@@ -205,18 +205,21 @@ contains
     end do
     !$acc end parallel loop
 
-    ! MPI reduction for summed quantities (operates on host scalars)
-    call sum_reduce(upe2_sum       , 0)
-    call sum_reduce(bpe2_sum       , 0)
-    call sum_reduce(upe2dot_sum    , 0)
-    call sum_reduce(bpe2dot_sum    , 0)
-    call sum_reduce(upe2dissip_sum , 0)
-    call sum_reduce(bpe2dissip_sum , 0)
-    call sum_reduce(zppe2_sum      , 0)
-    call sum_reduce(zmpe2_sum      , 0)
-    call sum_reduce(p_phi_sum      , 0)
-    call sum_reduce(p_psi_sum      , 0)
-    call sum_reduce(p_xhl_sum      , 0)
+    ! MPI reduction for summed quantities (operates on host scalars).
+    ! These are grid/spectral partial sums, so reduce on comm_fft. The global
+    ! proc0 is the root of comm_fft group 0 (contiguous rank layout), so the
+    ! reduced value still lands there and the existing "if(proc0) write" holds.
+    call sum_reduce(upe2_sum       , 0, comm=comm_fft)
+    call sum_reduce(bpe2_sum       , 0, comm=comm_fft)
+    call sum_reduce(upe2dot_sum    , 0, comm=comm_fft)
+    call sum_reduce(bpe2dot_sum    , 0, comm=comm_fft)
+    call sum_reduce(upe2dissip_sum , 0, comm=comm_fft)
+    call sum_reduce(bpe2dissip_sum , 0, comm=comm_fft)
+    call sum_reduce(zppe2_sum      , 0, comm=comm_fft)
+    call sum_reduce(zmpe2_sum      , 0, comm=comm_fft)
+    call sum_reduce(p_phi_sum      , 0, comm=comm_fft)
+    call sum_reduce(p_psi_sum      , 0, comm=comm_fft)
+    call sum_reduce(p_xhl_sum      , 0, comm=comm_fft)
 
     ! Bin spectra over kprp on device
     call get_polar_spectrum_2d(upe2 , upe2_bin )
@@ -266,7 +269,100 @@ contains
     deallocate (bpe2_bin)
     deallocate (zppe2_bin)
     deallocate (zmpe2_bin)
+
+    ! With P_m>1 (and/or P_s>1) every comm_fft group redundantly solves the
+    ! same problem; verify the fields stay bitwise identical across groups.
+    if (nproc_m*nproc_s > 1) call check_redundant_consistency
   end subroutine loop_diagnostics
+
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Runtime assertion that the redundantly-solved fields (phi, psi)
+!!          are bitwise identical across all comm_m/comm_s groups. A fixed
+!!          loop order makes the scalar checksum reproducible, so max==min
+!!          over a redundant axis holds iff the field data agree. Active only
+!!          when nproc_m*nproc_s > 1.
+!-----------------------------------------------!
+  subroutine check_redundant_consistency
+    use MPI
+    use mp, only: proc0
+    use mp, only: comm_m, comm_s, nproc_m, nproc_s
+    use mp, only: max_allreduce, min_allreduce, sum_allreduce
+    use grid, only: nkx, nky_local, nkz
+    use fields, only: phi, psi
+    use, intrinsic :: iso_fortran_env, only: int64
+    implicit none
+    integer :: i, j, k, nbad, ierr
+    real(8) :: chk, chk_max, chk_min, re, im
+    integer(int64) :: h, h_or, h_and
+
+    ! (1) EXACT bitwise-identity test. XOR-fold the raw IEEE bit patterns of every
+    ! phi/psi component in a fixed host-side order. XOR is associative AND
+    ! commutative, so -- unlike a floating-point sum -- the fold is immune to the
+    ! GPU reduction ORDER, which is not guaranteed identical across the distinct
+    ! GPUs of a redundant comm_m group. The fold changes iff the field data differ
+    ! bit-for-bit, so it tests true redundant-solve identity rather than
+    ! reduction-order identity (a plain FP sum yields false ~1 ULP mismatches once
+    ! the field grows enough for the summation order to matter).
+    !$acc update host(phi, psi)
+    h = 0_int64
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          re = dble(phi(k,j,i)); im = aimag(phi(k,j,i))
+          h = ieor(h, transfer(re, 0_int64)); h = ieor(h, transfer(im, 0_int64))
+          re = dble(psi(k,j,i)); im = aimag(psi(k,j,i))
+          h = ieor(h, transfer(re, 0_int64)); h = ieor(h, transfer(im, 0_int64))
+        end do
+      end do
+    end do
+
+    ! (2) floating-point checksum, kept ONLY to report the magnitude of any
+    ! disagreement. This sum is order-sensitive and must never drive PASS/FAIL.
+    chk = 0.d0
+    !$acc data present(phi, psi)
+    !$acc parallel loop collapse(3) reduction(+:chk)
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          chk = chk + dble(phi(k,j,i)) + aimag(phi(k,j,i)) &
+                    + dble(psi(k,j,i)) + aimag(psi(k,j,i))
+        end do
+      end do
+    end do
+    !$acc end data
+
+    ! A group is bitwise identical iff every rank's hash agrees, i.e. the bitwise
+    ! OR across the group equals the bitwise AND across the group.
+    nbad = 0
+    chk_max = chk; chk_min = chk
+    if (nproc_m > 1) then
+      call mpi_allreduce(h, h_or,  1, MPI_INTEGER8, MPI_BOR,  comm_m, ierr)
+      call mpi_allreduce(h, h_and, 1, MPI_INTEGER8, MPI_BAND, comm_m, ierr)
+      if (h_or /= h_and) nbad = nbad + 1
+      call max_allreduce(chk_max, comm=comm_m)
+      call min_allreduce(chk_min, comm=comm_m)
+    endif
+    if (nproc_s > 1) then
+      call mpi_allreduce(h, h_or,  1, MPI_INTEGER8, MPI_BOR,  comm_s, ierr)
+      call mpi_allreduce(h, h_and, 1, MPI_INTEGER8, MPI_BAND, comm_s, ierr)
+      if (h_or /= h_and) nbad = nbad + 1
+      call max_allreduce(chk_max, comm=comm_s)
+      call min_allreduce(chk_min, comm=comm_s)
+    endif
+
+    call sum_allreduce(nbad)
+    if (proc0) then
+      if (nbad == 0) then
+        write (*, '("[check_redundant_consistency] PASS: comm_m/comm_s groups bitwise identical")')
+      else
+        write (*, '("[check_redundant_consistency] FAIL: ", i0, &
+          &" group mismatch(es); FP chk span=", es12.4e3, " rel=", es10.2e3)') &
+          nbad, chk_max - chk_min, (chk_max - chk_min)/max(abs(chk_max), 1.d-300)
+      endif
+    endif
+  end subroutine check_redundant_consistency
 
 
 !-----------------------------------------------!

@@ -623,7 +623,7 @@ contains
     use grid, only: nkx, nky_local, nkz, kprp2
     use grid, only: ntot
     use params, only: zi
-    use mp, only: proc0, max_allreduce, sum_allreduce
+    use mp, only: proc0, max_allreduce, sum_allreduce, comm_fft
     use time, only: cfl, dt, tt, reset_method, increase_dt
     use time_stamp, only: put_time_stamp, timer_nonlinear_terms
     use advance_common, only: dt_adjust_while_running 
@@ -684,8 +684,10 @@ contains
 
     !$acc update host (ux_rms, uy_rms, bx_rms, by_rms)
 
-    call sum_allreduce(ux_rms); call sum_allreduce(uy_rms)
-    call sum_allreduce(bx_rms); call sum_allreduce(by_rms)
+    ! rms is a grid-space partial sum normalized by the global ntot: reduce on
+    ! comm_fft so redundant comm_m/comm_s groups do not scale it by P_m*P_s.
+    call sum_allreduce(ux_rms, comm=comm_fft); call sum_allreduce(uy_rms, comm=comm_fft)
+    call sum_allreduce(bx_rms, comm=comm_fft); call sum_allreduce(by_rms, comm=comm_fft)
 
     ux_rms = sqrt(ux_rms/ntot); uy_rms = sqrt(uy_rms/ntot)
     bx_rms = sqrt(bx_rms/ntot); by_rms = sqrt(by_rms/ntot)
@@ -719,6 +721,9 @@ contains
       end do
       !$acc end data
 
+      ! CFL velocity max must span all ranks (world). max is duplication-
+      ! invariant, so keeping it on world is both correct and lockstep-safe:
+      ! every group computes the same dt, avoiding step-count divergence.
       call max_allreduce(max_vel_x)
       call max_allreduce(max_vel_y)
       dt_cfl = cfl*min(dlx/max_vel_x, dly/max_vel_y)

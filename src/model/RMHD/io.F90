@@ -87,12 +87,18 @@ contains
 !! @brief   Initialization of MPIIO for 3D
 !-----------------------------------------------!
   subroutine init_io_decomp_3d
-    use mp, only: proc0
+    use mp, only: proc0, proc0_m, proc0_s, comm_fft
     use file, only: open_output_file
     implicit none
 
-    call set_file_handle('out3d/phi.dat', fh_phi, disp_phi)
-    call set_file_handle('out3d/psi.dat', fh_psi, disp_psi)
+    ! Only comm_fft group 0 performs MPI-IO for the redundantly-solved fields;
+    ! every group holds an identical copy, so opening/writing on comm_fft from
+    ! group 0 alone avoids cross-group file corruption. At P_m=P_s=1 the gate is
+    ! always true and comm_fft==MPI_COMM_WORLD, so behaviour is unchanged.
+    if (proc0_m .and. proc0_s) then
+      call set_file_handle('out3d/phi.dat', fh_phi, disp_phi, comm_fft)
+      call set_file_handle('out3d/psi.dat', fh_psi, disp_psi, comm_fft)
+    endif
 
     if(proc0) then
       call open_output_file (out3d_time_unit, 'out3d/time.dat')
@@ -105,41 +111,44 @@ contains
 !! @brief   Initialization of MPIIO for 2D
 !-----------------------------------------------!
   subroutine init_io_decomp_2d
-    use mp, only: proc0
+    use mp, only: proc0, proc0_m, proc0_s, comm_fft
     use file, only: open_output_file
     implicit none
 
-    call set_file_handle('out2d/phi_r_z0.dat', fh_phi_r_z0, disp_phi_r_z0)
-    call set_file_handle('out2d/phi_r_x0.dat', fh_phi_r_x0, disp_phi_r_x0)
-    call set_file_handle('out2d/phi_r_y0.dat', fh_phi_r_y0, disp_phi_r_y0)
+    ! Only comm_fft group 0 performs the 2D-cut MPI-IO (see init_io_decomp_3d).
+    if (proc0_m .and. proc0_s) then
+    call set_file_handle('out2d/phi_r_z0.dat', fh_phi_r_z0, disp_phi_r_z0, comm_fft)
+    call set_file_handle('out2d/phi_r_x0.dat', fh_phi_r_x0, disp_phi_r_x0, comm_fft)
+    call set_file_handle('out2d/phi_r_y0.dat', fh_phi_r_y0, disp_phi_r_y0, comm_fft)
 
-    call set_file_handle('out2d/psi_r_z0.dat', fh_psi_r_z0, disp_psi_r_z0)
-    call set_file_handle('out2d/psi_r_x0.dat', fh_psi_r_x0, disp_psi_r_x0)
-    call set_file_handle('out2d/psi_r_y0.dat', fh_psi_r_y0, disp_psi_r_y0)
+    call set_file_handle('out2d/psi_r_z0.dat', fh_psi_r_z0, disp_psi_r_z0, comm_fft)
+    call set_file_handle('out2d/psi_r_x0.dat', fh_psi_r_x0, disp_psi_r_x0, comm_fft)
+    call set_file_handle('out2d/psi_r_y0.dat', fh_psi_r_y0, disp_psi_r_y0, comm_fft)
 
-    call set_file_handle('out2d/omg_r_z0.dat', fh_omg_r_z0, disp_omg_r_z0)
-    call set_file_handle('out2d/omg_r_x0.dat', fh_omg_r_x0, disp_omg_r_x0)
-    call set_file_handle('out2d/omg_r_y0.dat', fh_omg_r_y0, disp_omg_r_y0)
+    call set_file_handle('out2d/omg_r_z0.dat', fh_omg_r_z0, disp_omg_r_z0, comm_fft)
+    call set_file_handle('out2d/omg_r_x0.dat', fh_omg_r_x0, disp_omg_r_x0, comm_fft)
+    call set_file_handle('out2d/omg_r_y0.dat', fh_omg_r_y0, disp_omg_r_y0, comm_fft)
 
-    call set_file_handle('out2d/jpa_r_z0.dat', fh_jpa_r_z0, disp_jpa_r_z0)
-    call set_file_handle('out2d/jpa_r_x0.dat', fh_jpa_r_x0, disp_jpa_r_x0)
-    call set_file_handle('out2d/jpa_r_y0.dat', fh_jpa_r_y0, disp_jpa_r_y0)
+    call set_file_handle('out2d/jpa_r_z0.dat', fh_jpa_r_z0, disp_jpa_r_z0, comm_fft)
+    call set_file_handle('out2d/jpa_r_x0.dat', fh_jpa_r_x0, disp_jpa_r_x0, comm_fft)
+    call set_file_handle('out2d/jpa_r_y0.dat', fh_jpa_r_y0, disp_jpa_r_y0, comm_fft)
 
-    call set_file_handle('out2d/ux_r_z0.dat' , fh_ux_r_z0 , disp_ux_r_z0 )
-    call set_file_handle('out2d/ux_r_x0.dat' , fh_ux_r_x0 , disp_ux_r_x0 )
-    call set_file_handle('out2d/ux_r_y0.dat' , fh_ux_r_y0 , disp_ux_r_y0 )
+    call set_file_handle('out2d/ux_r_z0.dat' , fh_ux_r_z0 , disp_ux_r_z0 , comm_fft)
+    call set_file_handle('out2d/ux_r_x0.dat' , fh_ux_r_x0 , disp_ux_r_x0 , comm_fft)
+    call set_file_handle('out2d/ux_r_y0.dat' , fh_ux_r_y0 , disp_ux_r_y0 , comm_fft)
                                                                          
-    call set_file_handle('out2d/uy_r_z0.dat' , fh_uy_r_z0 , disp_uy_r_z0 )
-    call set_file_handle('out2d/uy_r_x0.dat' , fh_uy_r_x0 , disp_uy_r_x0 )
-    call set_file_handle('out2d/uy_r_y0.dat' , fh_uy_r_y0 , disp_uy_r_y0 )
+    call set_file_handle('out2d/uy_r_z0.dat' , fh_uy_r_z0 , disp_uy_r_z0 , comm_fft)
+    call set_file_handle('out2d/uy_r_x0.dat' , fh_uy_r_x0 , disp_uy_r_x0 , comm_fft)
+    call set_file_handle('out2d/uy_r_y0.dat' , fh_uy_r_y0 , disp_uy_r_y0 , comm_fft)
                                                                          
-    call set_file_handle('out2d/bx_r_z0.dat' , fh_bx_r_z0 , disp_bx_r_z0 )
-    call set_file_handle('out2d/bx_r_x0.dat' , fh_bx_r_x0 , disp_bx_r_x0 )
-    call set_file_handle('out2d/bx_r_y0.dat' , fh_bx_r_y0 , disp_bx_r_y0 )
+    call set_file_handle('out2d/bx_r_z0.dat' , fh_bx_r_z0 , disp_bx_r_z0 , comm_fft)
+    call set_file_handle('out2d/bx_r_x0.dat' , fh_bx_r_x0 , disp_bx_r_x0 , comm_fft)
+    call set_file_handle('out2d/bx_r_y0.dat' , fh_bx_r_y0 , disp_bx_r_y0 , comm_fft)
                                                                          
-    call set_file_handle('out2d/by_r_z0.dat' , fh_by_r_z0 , disp_by_r_z0 )
-    call set_file_handle('out2d/by_r_x0.dat' , fh_by_r_x0 , disp_by_r_x0 )
-    call set_file_handle('out2d/by_r_y0.dat' , fh_by_r_y0 , disp_by_r_y0 )
+    call set_file_handle('out2d/by_r_z0.dat' , fh_by_r_z0 , disp_by_r_z0 , comm_fft)
+    call set_file_handle('out2d/by_r_x0.dat' , fh_by_r_x0 , disp_by_r_x0 , comm_fft)
+    call set_file_handle('out2d/by_r_y0.dat' , fh_by_r_y0 , disp_by_r_y0 , comm_fft)
+    endif
 
 
     if(proc0) then
@@ -152,14 +161,15 @@ contains
 !> @author  YK
 !! @brief   Set file handle for MPIIO
 !-----------------------------------------------!
-  subroutine set_file_handle(fn, fh, disp)
+  subroutine set_file_handle(fn, fh, disp, comm)
     implicit none
     character(*) :: fn
     integer :: fh
     integer (kind=MPI_OFFSET_KIND) :: disp
+    integer, intent(in) :: comm
     integer :: ierr
 
-    call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(fn), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, fh, ierr)
+    call MPI_FILE_OPEN(comm, trim(fn), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, fh, ierr)
     call MPI_FILE_SET_SIZE(fh, 0_MPI_OFFSET_KIND, ierr)  ! guarantee overwriting
     disp = 0_MPI_OFFSET_KIND
   end subroutine set_file_handle
@@ -353,7 +363,7 @@ contains
     use grid, only: nlx, nly, nlz, nkx, nky, nkz
     use grid, only: nlx_local, nky_local
     use time, only: tt
-    use mp, only: proc0, proc_id
+    use mp, only: proc0, iproc_fft, proc0_m, proc0_s
     use mpiio, only: mpiio_write_var_2d
     use time_stamp, only: put_time_stamp, timer_io_total, timer_io_2D
     implicit none
@@ -393,6 +403,10 @@ contains
     if (proc0) call put_time_stamp(timer_io_total)
     if (proc0) call put_time_stamp(timer_io_2D)
 
+    ! Only comm_fft group 0 opened the 2D-cut files, so only it writes the cuts
+    ! (collective over comm_fft). Other groups hold identical redundant copies.
+    if (proc0_m .and. proc0_s) then
+
     !--------------------------------------------------!
     !                    z = 0 cut
     !--------------------------------------------------!
@@ -401,7 +415,7 @@ contains
       sizes(2) = nly
       subsizes(1) = nlx_local
       subsizes(2) = nly
-      starts(1) = nlx_local*proc_id
+      starts(1) = nlx_local*iproc_fft
       starts(2) = 0
     else
       sizes(1) = nlx
@@ -459,7 +473,7 @@ contains
       sizes(2) = nlz
       subsizes(1) = nlx_local
       subsizes(2) = nlz
-      starts(1) = nlx_local*proc_id
+      starts(1) = nlx_local*iproc_fft
       starts(2) = 0
     else
       sizes(1) = nlx
@@ -479,6 +493,8 @@ contains
     call mpiio_write_var_2d(fh_uy_r_y0 , disp_uy_r_y0 , sizes, subsizes, starts, uy_r_y0 )
     call mpiio_write_var_2d(fh_bx_r_y0 , disp_bx_r_y0 , sizes, subsizes, starts, bx_r_y0 )
     call mpiio_write_var_2d(fh_by_r_y0 , disp_by_r_y0 , sizes, subsizes, starts, by_r_y0 )
+
+    endif ! proc0_m .and. proc0_s
 
     if(proc0) then
       write (unit=out2d_time_unit, fmt="(100es30.21)") tt
@@ -539,7 +555,7 @@ contains
 !-----------------------------------------------!
   subroutine save_restart
     use fields, only: phi, omg, psi
-    use mp, only: proc0, proc_id
+    use mp, only: proc0, iproc_fft, proc0_m, proc0_s, comm_fft
     use grid, only: nkx, nky, nky_local, nkz
     use time, only: tt, dt
     use params, only: restart_dir
@@ -560,14 +576,18 @@ contains
     subsizes(2) = nky_local
     subsizes(3) = nkx
     starts(1) = 0
-    starts(2) = nky_local*proc_id
+    starts(2) = nky_local*iproc_fft
     starts(3) = 0
 
     !$acc update host(phi, omg, psi)
 
-    call mpiio_write_one(phi, sizes, subsizes, starts, trim(restart_dir)//'phi.dat')
-    call mpiio_write_one(omg, sizes, subsizes, starts, trim(restart_dir)//'omg.dat')
-    call mpiio_write_one(psi, sizes, subsizes, starts, trim(restart_dir)//'psi.dat')
+    ! Only comm_fft group 0 writes the checkpoint; every group holds an identical
+    ! copy, so writing from all groups would corrupt the same files.
+    if (proc0_m .and. proc0_s) then
+      call mpiio_write_one(phi, sizes, subsizes, starts, trim(restart_dir)//'phi.dat', comm_fft)
+      call mpiio_write_one(omg, sizes, subsizes, starts, trim(restart_dir)//'omg.dat', comm_fft)
+      call mpiio_write_one(psi, sizes, subsizes, starts, trim(restart_dir)//'psi.dat', comm_fft)
+    endif
 
     if(proc0) then
       call open_output_file (time_unit, trim(restart_dir)//'time.dat')
@@ -585,11 +605,13 @@ contains
 !! @brief   Finalization of NETCDF
 !-----------------------------------------------!
   subroutine finish_io
-    use mp, only: proc0
+    use mp, only: proc0, proc0_m, proc0_s
     use file, only: close_file
     implicit none
     integer :: ierr
 
+    ! Only comm_fft group 0 opened the MPI-IO handles (see init_io_decomp_*).
+    if (proc0_m .and. proc0_s) then
     !3D
     call MPI_FILE_CLOSE(fh_phi,ierr)
     call MPI_FILE_CLOSE(fh_psi,ierr)
@@ -611,6 +633,7 @@ contains
     call MPI_FILE_CLOSE(fh_jpa_r_z0,ierr)
     call MPI_FILE_CLOSE(fh_jpa_r_x0,ierr)
     call MPI_FILE_CLOSE(fh_jpa_r_y0,ierr)
+    endif
 
     if(proc0) then
       call close_file (out2d_time_unit)

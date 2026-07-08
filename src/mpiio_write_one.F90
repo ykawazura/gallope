@@ -11,7 +11,7 @@
     call MPI_TYPE_CREATE_SUBARRAY(3, sizes, subsizes, starts,  &
          MPI_ORDER_FORTRAN, data_type, newtype, ierror)
     call MPI_TYPE_COMMIT(newtype,ierror)
-    call MPI_FILE_OPEN(MPI_COMM_WORLD, filename, &
+    call MPI_FILE_OPEN(comm, filename, &
          MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, &
          fh, ierror)
     filesize = 0_MPI_OFFSET_KIND

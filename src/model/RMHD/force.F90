@@ -62,7 +62,7 @@ contains
     use grid, only: nkx, nky_local, nkz, kprp2
     use fields, only: phi, psi
     use mp, only: sum_allreduce
-    use mp, only: proc0
+    use mp, only: proc0, comm_fft
     use time_stamp, only: put_time_stamp, timer_force
     implicit none
     complex(8), dimension(:,:,:), intent(inout) :: fphi, fpsi
@@ -114,8 +114,10 @@ contains
       end do
       !$acc end data
 
-      call sum_allreduce(phi_dot_nbl2_fphi_sum)
-      call sum_allreduce(psi_dot_nbl2_fpsi_sum)
+      ! Field partial sums live on comm_fft; reduce there so redundant
+      ! comm_m/comm_s groups do not double-count (would scale power by P_m*P_s).
+      call sum_allreduce(phi_dot_nbl2_fphi_sum, comm=comm_fft)
+      call sum_allreduce(psi_dot_nbl2_fpsi_sum, comm=comm_fft)
 
       if(abs(phi_dot_nbl2_fphi_sum) > 1.0d-6 .and. abs(psi_dot_nbl2_fpsi_sum) > 1.0d-6) then
         !$acc parallel loop present(fphi, fpsi) copyin(phi_dot_nbl2_fphi_sum, psi_dot_nbl2_fpsi_sum)
@@ -146,7 +148,7 @@ contains
     use grid, only: nkx, nky_local, nkz, kprp2
     use fields, only: phi, psi
     use mp, only: sum_allreduce
-    use mp, only: proc0
+    use mp, only: proc0, comm_fft
     use time_stamp, only: put_time_stamp, timer_force
     implicit none
     complex(8), dimension(:,:,:), intent(inout) :: fzppe, fzmpe
@@ -201,8 +203,9 @@ contains
       end do
       !$acc end data
 
-      call sum_allreduce(zppe_dot_nbl2_fzppe_sum)
-      call sum_allreduce(zmpe_dot_nbl2_fzmpe_sum)
+      ! Field partial sums live on comm_fft (see normalize_force).
+      call sum_allreduce(zppe_dot_nbl2_fzppe_sum, comm=comm_fft)
+      call sum_allreduce(zmpe_dot_nbl2_fzmpe_sum, comm=comm_fft)
 
       if(abs(zppe_dot_nbl2_fzppe_sum) > 1.0d-6 .and. abs(zmpe_dot_nbl2_fzmpe_sum) > 1.0d-6) then
         !$acc parallel loop present(fphi, fpsi) copyin(zppe_dot_nbl2_fzppe_sum, zmpe_dot_nbl2_fzmpe_sum)

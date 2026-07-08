@@ -1,0 +1,89 @@
+#!/bin/sh -l
+
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=4:mpiprocs=1
+#PBS -l walltime=01:00:00
+#PBS -W group_list=gr96
+#PBS -j oe
+
+#------- Program execution -------#
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+cd ${PBS_O_WORKDIR}
+
+#===========================================================================#
+#  Phase 0-B verification: reductions comm-routing + redundant-solve         #
+#  determinism. The 0-B build is byte-invariant at P_m=P_s=1 and must give    #
+#  identical physics across redundant comm_m groups at P_m>1.                 #
+#                                                                             #
+#  Key: the FFT decomposition depends on the comm_fft SIZE, so a P_m=2 group  #
+#  (comm_fft=2) is compared only against a P_m=1 run of the SAME comm_fft     #
+#  size (nproc=2), never against the nproc=4/P_m=1 run (comm_fft=4).          #
+#===========================================================================#
+rm -rf v1a v1b ref2 v2 v4a v4b
+mkdir -p restart_regress restart_pm2 restart_rand v1a v1b ref2 v2 v4a v4b
+
+save() { cp -a restart_$1/phi.dat restart_$1/omg.dat restart_$1/psi.dat restart_$1/time.dat "$2"/; }
+chk()  { if cmp -s "$1" "$2"; then echo "  IDENTICAL : $1  ==  $2"; else echo "  DIFFER    : $1  !=  $2"; fi; }
+
+#--- V1: regression + determinism. nproc=4, P_m=1 (comm_fft=4). ---
+mpirun -np 4 ./gallope regress <regress.in >v1a.std 2>&1 ; save regress v1a
+mpirun -np 4 ./gallope regress <regress.in >v1b.std 2>&1 ; save regress v1b
+
+#--- ref2: comm_fft=2 reference. nproc=2, P_m=1. ---
+mpirun -np 2 ./gallope regress <regress.in >ref2.std 2>&1 ; save regress ref2
+
+#--- V2 + V3: nproc=4, P_m=2 (comm_fft=2, 2 redundant groups). ---
+mpirun -np 4 ./gallope regress_pm2 <regress_pm2.in >v2.std 2>&1 ; save pm2 v2
+
+#--- V4: random IC, nproc=4, P_m=2. reproducible + all groups identical. ---
+mpirun -np 4 ./gallope regress_rand <regress_rand.in >v4a.std 2>&1 ; save rand v4a
+mpirun -np 4 ./gallope regress_rand <regress_rand.in >v4b.std 2>&1 ; save rand v4b
+
+echo "############################################################"
+echo "#                  0-B VERIFICATION SUMMARY                 #"
+echo "############################################################"
+
+echo; echo "=== process grids (sanity) ==="
+grep -i "Process grid" v1a.std ref2.std v2.std v4a.std
+
+echo; echo "=== restart file sizes (P_m=2 must match P_m=1, NOT the corrupted 0-A size) ==="
+ls -l v1a/phi.dat ref2/phi.dat v2/phi.dat 2>/dev/null | awk '{print "  "$5"  "$NF}'
+
+echo; echo "=== V1 determinism (nproc=4 P_m=1, run a vs b) ==="
+for f in phi omg psi; do chk v1a/$f.dat v1b/$f.dat; done
+
+echo; echo "=== V1 regression (0-B v1a == preserved 0-A baseline run1/) ==="
+if [ -d run1 ]; then for f in phi omg psi; do chk v1a/$f.dat run1/$f.dat; done; else echo "  (no run1/ baseline present -- skipped)"; fi
+
+echo; echo "=== V2 comm-scoping: P_m=2 group0 == P_m=1 at same comm_fft=2 (ref2) ==="
+echo "    (a leak to MPI_COMM_WORLD would double-count reductions => DIFFER)"
+for f in phi omg psi; do chk v2/$f.dat ref2/$f.dat; done
+
+echo; echo "=== V2 energy NetCDF (secondary; data should match) ==="
+chk regress_pm2.out.nc regress.out.nc
+
+echo; echo "=== V3 redundant-consistency assertion (must be ALL PASS, 0 FAIL) ==="
+printf "  total=%s PASS=%s FAIL=%s\n" \
+  "$(grep -ci 'check_redundant_consistency' v2.std)" \
+  "$(grep -ci 'check_redundant_consistency.*PASS' v2.std)" \
+  "$(grep -ci 'check_redundant_consistency.*FAIL' v2.std)"
+grep -i "check_redundant_consistency.*FAIL" v2.std | head -3
+
+echo; echo "=== V4 random-IC determinism (run a vs b) ==="
+for f in phi omg psi; do chk v4a/$f.dat v4b/$f.dat; done
+
+echo; echo "=== V4 redundant-consistency assertion (random IC; must be ALL PASS, 0 FAIL) ==="
+printf "  total=%s PASS=%s FAIL=%s\n" \
+  "$(grep -ci 'check_redundant_consistency' v4a.std)" \
+  "$(grep -ci 'check_redundant_consistency.*PASS' v4a.std)" \
+  "$(grep -ci 'check_redundant_consistency.*FAIL' v4a.std)"
+grep -i "check_redundant_consistency.*FAIL" v4a.std | head -3
+
+echo; echo "=== run completions (last line of each) ==="
+for s in v1a v1b ref2 v2 v4a v4b; do printf "  %-6s: " $s; tail -1 $s.std; done

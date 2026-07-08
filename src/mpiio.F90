@@ -37,13 +37,14 @@ contains
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! Using MPI-IO library to write a single 3D array to a file
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  subroutine mpiio_write_one_complex(var, sizes, subsizes, starts, filename)
-    
+  subroutine mpiio_write_one_complex(var, sizes, subsizes, starts, filename, comm)
+
     implicit none
-    
+
     complex(8), dimension(:,:,:), intent(IN) :: var
     integer, dimension(3), intent(IN) :: sizes, subsizes, starts
     character(len=*), intent(IN) :: filename
+    integer, intent(IN) :: comm
 
     integer(kind=MPI_OFFSET_KIND) :: filesize, disp
     integer :: ierror, newtype, fh, data_type
@@ -55,13 +56,14 @@ contains
     return
   end subroutine mpiio_write_one_complex
 
-  subroutine mpiio_write_one_real(var, sizes, subsizes, starts, filename)
-    
+  subroutine mpiio_write_one_real(var, sizes, subsizes, starts, filename, comm)
+
     implicit none
-    
+
     real(8), dimension(:,:,:), intent(IN) :: var
     integer, dimension(3), intent(IN) :: sizes, subsizes, starts
     character(len=*), intent(IN) :: filename
+    integer, intent(IN) :: comm
 
     integer(kind=MPI_OFFSET_KIND) :: filesize, disp
     integer :: ierror, newtype, fh, data_type
@@ -76,13 +78,14 @@ contains
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! Using MPI-IO library to read from a file a single 3D array
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  subroutine mpiio_read_one_complex(var, sizes, subsizes, starts, filename)
-    
+  subroutine mpiio_read_one_complex(var, sizes, subsizes, starts, filename, comm)
+
     implicit none
-    
+
     complex(8), dimension(:,:,:), intent(INOUT) :: var
     integer, dimension(3), intent(IN) :: sizes, subsizes, starts
     character(len=*), intent(IN) :: filename
+    integer, intent(IN) :: comm
 
     ! integer(kind=MPI_OFFSET_KIND) :: disp
     integer :: ierror, newtype, fh, data_type
