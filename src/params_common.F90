@@ -11,6 +11,7 @@ module params_common
   public  time_step_scheme
   public  save_restart_intvl
   public  restart_dir
+  public  P_m, P_s
   private read_parameters
 
   !> square root of -1.
@@ -27,6 +28,11 @@ module params_common
 
   real(8)           :: save_restart_intvl
   character(len=100) :: restart_dir
+
+  !> process-grid split counts for the [P_fft, P_m, P_s] layout.
+  !> P_fft = nproc/(P_m*P_s) is derived in mp. Defaults (1,1) reduce to
+  !> comm_fft == MPI_COMM_WORLD, i.e. the pre-refactor single-communicator run.
+  integer :: P_m, P_s
 
   !$acc declare copyin(zi, pi)
 contains
@@ -69,6 +75,7 @@ contains
 
     namelist /scheme_parameters/ time_step_scheme
     namelist /restart_parameters/ save_restart_intvl, restart_dir
+    namelist /parallelization/ P_m, P_s
 
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
     !v    used only when the corresponding value   v!
@@ -82,6 +89,21 @@ contains
 
     read(unit,nml=scheme_parameters,iostat=ierr)
         if (ierr/=0) write(*,*) "Reading scheme_parameters failed"
+    close(unit)
+
+    !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
+    !v    used only when the corresponding value   v!
+    !v    does not exist in the input file         v!
+    !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
+    P_m = 1
+    P_s = 1
+    !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^!
+
+    call get_unused_unit (unit)
+    open(unit=unit,file=filename,status='old')
+
+    ! optional namelist: absence keeps the (1,1) default => comm_fft == world
+    read(unit,nml=parallelization,iostat=ierr)
     close(unit)
 
     if(time_step_scheme /= 'eSSPIFRK3' .and. time_step_scheme /= 'gear3') then

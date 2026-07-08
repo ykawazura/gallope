@@ -52,6 +52,9 @@ contains
   subroutine init_grid
     use mp, only: proc0, sum_allreduce
     use mp, only: proc_id, nproc
+    ! the real/spectral slabs are decomposed over comm_fft, not the world.
+    ! With P_m=P_s=1, nproc_fft==nproc and iproc_fft==proc_id (bitwise regression).
+    use mp, only: iproc_fft, nproc_fft
     use params, only: pi, inputfile
     implicit none
     include 'mpif.h'
@@ -67,13 +70,13 @@ contains
     nkz = nlz/2 + 1
 
     ! We start with X-Slabs
-    ! Ranks 0 ... (nlx % nproc - 1) have 1 more element in the X dimension
+    ! Ranks 0 ... (nlx % nproc_fft - 1) have 1 more element in the X dimension
     ! and every rank own all elements in the Y and Z dimensions.
-    ranks_cutoff = mod(nlx, nproc)
-    nlx_local = nlx/nproc 
-    if (proc_id < ranks_cutoff) nlx_local = nlx_local + 1
+    ranks_cutoff = mod(nlx, nproc_fft)
+    nlx_local = nlx/nproc_fft
+    if (iproc_fft < ranks_cutoff) nlx_local = nlx_local + 1
 
-    nky_local =  nly / nproc;
+    nky_local =  nly / nproc_fft;
 
     allocate(xx(nlx_local))
     allocate(xx_global(nlx))
@@ -90,7 +93,7 @@ contains
     allocate(kz2(nkz))
 
     do i = 1, nlx_local
-      xx(i) = lx*dble(1.d0/nlx*(i + nlx_local*proc_id - 1))
+      xx(i) = lx*dble(1.d0/nlx*(i + nlx_local*iproc_fft - 1))
     enddo
     do i = 1, nlx
       xx_global(i) = lx*dble(1.d0/nlx*(i - 1))
@@ -112,10 +115,10 @@ contains
       kx(i) = 2.d0*pi*dble(ikx(i))/lx
     enddo
     do j = 1, nky_local
-      if (j + nky_local*proc_id <= nky/2 + 1) then
-        iky(j) = j + nky_local*proc_id - 1
+      if (j + nky_local*iproc_fft <= nky/2 + 1) then
+        iky(j) = j + nky_local*iproc_fft - 1
       else
-        iky(j) = j + nky_local*proc_id - nky - 1
+        iky(j) = j + nky_local*iproc_fft - nky - 1
       endif
 
       ky(j) = 2.d0*pi*dble(iky(j))/ly
@@ -135,10 +138,10 @@ contains
       kz2(k) = kz(k)**2
     enddo
 
-    if (mod(nly, nproc) > 0) then
-      print*," nly has to divide evenly by mpi_procs"
+    if (mod(nly, nproc_fft) > 0) then
+      print*," nly has to divide evenly by the comm_fft rank count"
       call mpi_finalize(ierr)
-    end if 
+    end if
 
     dlx = abs(xx_global(2) - xx_global(1))
     dly = abs(yy(2) - yy(1))

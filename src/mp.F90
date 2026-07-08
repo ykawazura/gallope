@@ -11,15 +11,30 @@ module mp
   include 'mpif.h'
 
   public :: init_mp, finish_mp
+  public :: init_comm_layout
   public :: proc_id, nproc, proc0
+  public :: comm_fft, comm_m, comm_s
+  public :: nproc_fft, iproc_fft, proc0_fft
+  public :: nproc_m,   iproc_m,   proc0_m
+  public :: nproc_s,   iproc_s,   proc0_s
   public :: broadcast, sum_reduce, sum_allreduce
   public :: max_reduce, max_allreduce
   public :: min_reduce, min_allreduce
   public :: send, receive, isend, ireceive
   public :: barrier
 
+  ! world communicator state (MPI_COMM_WORLD)
   integer :: proc_id, nproc
   logical :: proc0
+
+  ! [P_fft, P_m, P_s] Cartesian process grid, built by init_comm_layout.
+  ! With P_m=P_s=1, comm_fft == MPI_COMM_WORLD, i.e. the pre-refactor run.
+  integer :: comm_cart
+  integer :: comm_fft, comm_m, comm_s
+  integer :: nproc_fft, iproc_fft
+  integer :: nproc_m,   iproc_m
+  integer :: nproc_s,   iproc_s
+  logical :: proc0_fft, proc0_m, proc0_s
 
   interface broadcast
      module procedure broadcast_integer 
@@ -153,9 +168,64 @@ contains
     call MPI_COMM_SIZE (MPI_COMM_WORLD,nproc,ierr)
     call MPI_COMM_RANK (MPI_COMM_WORLD,proc_id,ierr)
 
-    proc0 = proc_id == 0 
+    proc0 = proc_id == 0
 
   end subroutine init_mp
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Build the [P_fft, P_m, P_s] Cartesian process grid and
+!!          extract the comm_fft / comm_m / comm_s sub-communicators.
+!!          P_fft = nproc/(P_m*P_s). With P_m=P_s=1, comm_fft is a
+!!          size-nproc copy of MPI_COMM_WORLD, so the run is bitwise
+!!          identical to the pre-refactor single-communicator code.
+!-----------------------------------------------!
+  subroutine init_comm_layout(p_m, p_s)
+    implicit none
+    integer, intent(in) :: p_m, p_s
+    integer :: p_fft
+    integer :: dims(3)
+    logical :: periods(3), remain(3)
+    integer :: ierr
+
+    if (mod(nproc, p_m*p_s) /= 0) then
+      if (proc0) write(*,'(A,I0,A,I0,A,I0)') &
+        ' ERROR: nproc must be divisible by P_m*P_s. nproc=', nproc, &
+        ', P_m=', p_m, ', P_s=', p_s
+      call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
+    end if
+    p_fft = nproc/(p_m*p_s)
+
+    ! dims ordered [P_s, P_m, P_fft]: P_fft is the fastest-varying axis, so each
+    ! comm_fft holds a contiguous block of world ranks (matches the smoke-test
+    ! color split). reorder=.false. keeps world rank order, so global proc0 is
+    ! the rank-0 root of its comm_fft / comm_m / comm_s.
+    dims    = (/ p_s, p_m, p_fft /)
+    periods = (/ .false., .false., .false. /)
+    call MPI_CART_CREATE(MPI_COMM_WORLD, 3, dims, periods, .false., comm_cart, ierr)
+
+    remain = (/ .false., .false., .true.  /)   ! keep the P_fft axis
+    call MPI_CART_SUB(comm_cart, remain, comm_fft, ierr)
+    remain = (/ .false., .true. , .false. /)   ! keep the P_m axis
+    call MPI_CART_SUB(comm_cart, remain, comm_m,   ierr)
+    remain = (/ .true. , .false., .false. /)   ! keep the P_s axis
+    call MPI_CART_SUB(comm_cart, remain, comm_s,   ierr)
+
+    call MPI_COMM_SIZE(comm_fft, nproc_fft, ierr)
+    call MPI_COMM_RANK(comm_fft, iproc_fft, ierr)
+    call MPI_COMM_SIZE(comm_m,   nproc_m,   ierr)
+    call MPI_COMM_RANK(comm_m,   iproc_m,   ierr)
+    call MPI_COMM_SIZE(comm_s,   nproc_s,   ierr)
+    call MPI_COMM_RANK(comm_s,   iproc_s,   ierr)
+
+    proc0_fft = iproc_fft == 0
+    proc0_m   = iproc_m   == 0
+    proc0_s   = iproc_s   == 0
+
+    if (proc0) write(*,'(A,I0,A,I0,A,I0,A,I0,A)') &
+      ' Process grid [P_fft, P_m, P_s] = [', p_fft, ', ', p_m, ', ', p_s, &
+      '] over nproc = ', nproc, ' ranks'
+  end subroutine init_comm_layout
 
 !-----------------------------------------------!
 !> @author  YK
@@ -165,6 +235,12 @@ contains
     implicit none
     integer :: ierr
 
+    ! comm_fft was attached to the cuFFTMp plans, which are destroyed earlier
+    ! in finish_cuFFTmp; freeing here (before MPI_FINALIZE) is therefore safe.
+    call MPI_COMM_FREE (comm_fft,  ierr)
+    call MPI_COMM_FREE (comm_m,    ierr)
+    call MPI_COMM_FREE (comm_s,    ierr)
+    call MPI_COMM_FREE (comm_cart, ierr)
     call MPI_FINALIZE (ierr)
   end subroutine finish_mp
 

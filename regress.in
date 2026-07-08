@@ -1,0 +1,96 @@
+!--------------------------------------------------!
+!      Phase 0-A bitwise-regression input (RMHD)   !
+!  Small, DETERMINISTIC run: nproc=4, P_m=P_s=1.   !
+!  Driven turbulence with a FIXED forcing seed      !
+!  (stir_seed >= 0) so the stochastic forcing is    !
+!  bitwise-reproducible run-to-run (the default     !
+!  wall-clock seed is nondeterministic).            !
+!  No &parallelization block => defaults (1,1) so  !
+!  the pre-refactor build and the 0-A build behave !
+!  identically (comm_fft == world).                !
+!--------------------------------------------------!
+&box_parameters
+  lx = 1.0 ! to be multiplied by 2pi
+  ly = 1.0 ! to be multiplied by 2pi
+  lz = 1.0 ! to be multiplied by 2pi
+
+  nlx = 128
+  nly = 128
+  nlz = 128
+/
+
+!==============================================================================
+&time_parameters
+  dt    = 5.0d-3
+  nstep = 300
+  cfl   = 2.0d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+!==============================================================================
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+!==============================================================================
+&operation_parameters
+  nonlinear = T
+/
+
+!==============================================================================
+&physical_parameters
+  ! regular and hyper viscosity ~ nu*k^2 + nu_h*k^(2*nu_h_exp)
+  nupe_x      = 4d+3
+  nupe_x_exp  = 4
+  etape_x     = 4d+3
+  etape_x_exp = 4
+
+  nupe_z      = 4d+1
+  nupe_z_exp  = 4
+  etape_z     = 4d+1
+  etape_z_exp = 4
+/
+
+!==============================================================================
+&initial_condition
+  init_type = 'zero'
+/
+
+!==============================================================================
+&force
+  driven = T
+  elsasser = .true.
+  fix_power = .true.
+  ene_inj = 1.0d0
+  xhl_inj = 0.8d0
+  kmin = 0.d0  0.d0  1.d0
+  kmax = 1.0d0  1.0d0  2.d0
+  nfields = 2
+  stir_seed = 12345   ! fixed seed => reproducible forcing for the bitwise regression
+/
+&forced_fields
+  field_names = 'zppe'      , 'zmpe'
+  amplitudes  =  1.0      ,  1.0
+  frequencies = (0.9, -0.6), (0.9, -0.6)
+/
+
+!==============================================================================
+&terminate
+  max_wall_time   = 0.3
+  terminate_file_name = 'terminate'
+/
+
+!==============================================================================
+&diagnostics_parameters
+  write_intvl         = 0.05d0  ! 0D energy log (stdout) every 0.05 -> ~30 entries
+  write_intvl_2D      = 0.0d0   ! disabled for a fast regression
+  write_intvl_3D      = 0.0d0   ! disabled
+  SF2_nsample = 100000
+/
+
+!==============================================================================
+&restart_parameters
+  save_restart_intvl = 0.5d0    ! full-field dump at t = 0.5, 1.0, 1.5 (bitwise artifact)
+  restart_dir = './restart_regress/'
+/

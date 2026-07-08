@@ -40,11 +40,19 @@ contains
     logical :: is_unique
     integer, allocatable :: all_device_id(:)
     integer :: i, j, ierr
+    integer :: node_comm, node_rank
 
     call check_cuda(cudaGetDeviceCount(ndevice))
-    call check_cuda(cudaSetDevice(mod(proc_id, ndevice)))
-    device_id = mod(proc_id, ndevice)
-    
+    ! Select the GPU by intra-node rank so that several ranks sharing a node map
+    ! to distinct devices. This stays machine-independent: it does not assume one
+    ! GPU per node (Miyabi), and generalises to multi-GPU nodes via mpiprocs.
+    call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, &
+                             MPI_INFO_NULL, node_comm, ierr)
+    call MPI_Comm_rank(node_comm, node_rank, ierr)
+    call MPI_Comm_free(node_comm, ierr)
+    device_id = mod(node_rank, ndevice)
+    call check_cuda(cudaSetDevice(device_id))
+
    ! Get number of nodes and number of total GPUs
    if (proc0) then
       allocate(all_hostnames(nproc))
@@ -105,13 +113,17 @@ contains
 !-----------------------------------------------!
   subroutine init_cuFFTmp
     use grid, only: nlx, nly, nlz
+    use mp, only: comm_fft
     implicit none
     integer(c_size_t) :: worksize(1)
 
+    ! Attach each plan to comm_fft (not the world): the distributed 3D FFT runs
+    ! independently within every FFT group. With P_m=P_s=1, comm_fft spans all
+    ! ranks, so this is identical to the pre-refactor MPI_COMM_WORLD attach.
     call check_cufft(cufftCreate(planr2c))
     call check_cufft(cufftCreate(planc2r))
-    call check_cufft(cufftMpAttachComm(planr2c, CUFFT_COMM_MPI, MPI_COMM_WORLD), 'cufftMpAttachComm error')
-    call check_cufft(cufftMpAttachComm(planc2r, CUFFT_COMM_MPI, MPI_COMM_WORLD), 'cufftMpAttachComm error')
+    call check_cufft(cufftMpAttachComm(planr2c, CUFFT_COMM_MPI, comm_fft), 'cufftMpAttachComm error')
+    call check_cufft(cufftMpAttachComm(planc2r, CUFFT_COMM_MPI, comm_fft), 'cufftMpAttachComm error')
 
     call check_cufft(cufftMakePlan3d(planr2c, nlx, nly, nlz, CUFFT_D2Z, worksize), 'cufftMakePlan3d r2c error')
     call check_cufft(cufftMakePlan3d(planc2r, nlx, nly, nlz, CUFFT_Z2D, worksize), 'cufftMakePlan3d c2r error')
