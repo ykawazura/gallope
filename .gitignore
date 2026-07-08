@@ -1,0 +1,5 @@
+# machine-specific dev workflow (Workflow A)
+dev/
+
+# local planning notes (not part of the codebase)
+tasks/

@@ -1,0 +1,37 @@
+#!/bin/sh -l
+
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=4:mpiprocs=1
+#PBS -l walltime=00:10:00
+#PBS -W group_list=gr96
+#PBS -j oe
+
+#------- Program execution -------#
+# select=4:mpiprocs=1 -> 4 ranks total (Miyabi is 1 node = 1 GPU, so 4 GPUs).
+# mpiprocs corresponds to the number of GPUs per node. On a multi-GPU/node
+# machine, set mpiprocs=G and the same executable runs unchanged (the program
+# is independent of the physical GPU count).
+# Pass the split count as the first argument: HPC-X already propagates the
+# environment via mca_base_env_list, so mpirun -x cannot be used; mpirun
+# forwards argv to all ranks, which is reliable. Run 3 configs back-to-back
+# on the same allocation.
+
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+cd ${PBS_O_WORKDIR}
+
+echo "############ NCOMM=1 : 1 comm x 4 ranks (sanity, equals the base test) ############"
+mpirun ./cufftmp_subcomm 1
+
+echo "############ NCOMM=2 : 2 comms x 2 ranks (main case: coexisting distributed FFTs) ############"
+mpirun ./cufftmp_subcomm 2
+
+echo "############ NCOMM=4 : 4 comms x 1 rank (key case: P_fft=1 target layout) ############"
+mpirun ./cufftmp_subcomm 4
+
+echo "############ done ############"
