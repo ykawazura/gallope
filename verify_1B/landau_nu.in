@@ -1,0 +1,98 @@
+!--------------------------------------------------!
+!  1-B collisional free-energy-sink test (companion   !
+!  of landau_nu0.in). IDENTICAL setup but with the    !
+!  PRODUCTION Hermite hypercollision nu_hyper_m=10,   !
+!  nexp_m=6, i.e. -nu*(m/nm)^6. Sharply peaked at the !
+!  truncation (rate ~10 at m=nm, ~0.16 at m=nm/2), it !
+!  absorbs the phase-mixed free energy AS it reaches  !
+!  the top of the ladder. The correct signature is    !
+!  therefore in the FREE-ENERGY BUDGET, not in g0:    !
+!    - eq (6) free energy W_eq6 DECAYS (irreversible  !
+!      collisional sink) instead of staying flat;     !
+!    - the resolved low-m dynamics (g0var) is left     !
+!      essentially UNTOUCHED (a well-designed closure  !
+!      dissipates only at unresolved scales).          !
+!  (The reversible phase-mixing echo in g0 is not a    !
+!  truncation artifact and is not suppressed by this   !
+!  closure; finite-Hermite truncation recurrence is    !
+!  instead controlled by nm -- see recur_nm4.in.)      !
+!  Activates the closure in get_imp_terms_tintg_g by   !
+!  namelist alone.                                     !
+!--------------------------------------------------!
+&parallelization
+  P_m = 1
+  P_s = 1
+/
+
+&box_parameters
+  lx = 1.0
+  ly = 1.0
+  lz = 6.283185307179586d0
+  nlx = 8
+  nly = 8
+  nlz = 16
+  nm  = 16
+/
+
+&time_parameters
+  dt    = 1.0d-2
+  nstep = 3000
+  cfl   = 2.0d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+&operation_parameters
+  nonlinear = F
+/
+
+&physical_parameters
+  nupe_x      = 0.d0
+  nupe_x_exp  = 4
+  etape_x     = 0.d0
+  etape_x_exp = 4
+  nupe_z      = 0.d0
+  nupe_z_exp  = 4
+  etape_z     = 0.d0
+  etape_z_exp = 4
+
+  v_th          = 1.d0
+  mu_hyper_perp = 0.d0
+  nexp_perp     = 4
+  nu_hyper_m    = 10.d0
+  nexp_m        = 6
+  beta_i        = 1.d0
+  tau           = 1.d0
+  Zcharge       = 1.d0
+  alpha_root    = 1
+/
+
+&initial_condition
+  init_type = 'single_mode'
+  init_seed = 42
+/
+
+&force
+  driven = F
+/
+
+&terminate
+  max_wall_time   = 0.5
+  terminate_file_name = 'terminate'
+/
+
+&diagnostics_parameters
+  write_intvl         = 0.1d0
+  write_intvl_2D      = 0.0d0
+  write_intvl_3D      = 0.0d0
+  SF2_nsample = 100000
+/
+
+&restart_parameters
+  save_restart_intvl = 100.0d0
+  restart_dir = './restart/'
+/

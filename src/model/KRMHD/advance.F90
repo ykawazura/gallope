@@ -36,16 +36,18 @@ module advance
   !v      Hermite-moment field g (KRMHD)         v!
   !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
   ! g stage/output and per-moment nonlinear work. g_tmp carries width-1 m-ghosts
-  ! for the S_m ladder (streaming is wired in milestone 1-B); in 1-A only the
-  ! passive E x B advection -{Phi,g_m} is active.
+  ! for the S_m ladder used by the parallel streaming term v_th*grad_par*S_m.
+  ! wg/wg_r hold, for one moment m, both grad(g_m) (slots 1,2) and grad(S_m)
+  ! (slots 3,4) so the combined bracket -{Phi,g_m} - v_th{Psi,S_m} is one pass.
   complex(8), allocatable, dimension(:,:,:,:) :: g_new        ! (nkz,nky_local,nkx,nm_local)
   complex(8), allocatable, dimension(:,:,:,:) :: g_tmp        ! (...,0:nm_local+1) w/ m-ghosts
   complex(8), allocatable, dimension(:,:,:,:) :: exp_terms_g, exp_terms0_g
-  complex(8), allocatable, dimension(:,:,:,:) :: wg           ! (nkz,nky_local,nkx,2) grad of one moment
-  real   (8), allocatable, dimension(:,:,:,:) :: wg_r         ! (nlz_padded,nly,nlx_local,2)
+  complex(8), allocatable, dimension(:,:,:,:) :: wg           ! (nkz,nky_local,nkx,4) grad(g_m),grad(S_m)
+  real   (8), allocatable, dimension(:,:,:,:) :: wg_r         ! (nlz_padded,nly,nlx_local,4)
   complex(8), allocatable, dimension(:,:,:,:) :: nonlin_g     ! (...,nm_local) k-space bracket
   real   (8), allocatable, dimension(:,:,:)   :: nonlin_r_g   ! (nlz_padded,nly,nlx_local)
   integer, parameter :: idg_dx = 1, idg_dy = 2
+  integer, parameter :: ids_dx = 3, ids_dy = 4
 
   !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
   !v                  For Gear3                  v!
@@ -73,6 +75,7 @@ module advance
   !$acc declare copyin(idpsi_dx, idpsi_dy)
   !$acc declare copyin(idjpa_dx, idjpa_dy)
   !$acc declare copyin(idg_dx, idg_dy)
+  !$acc declare copyin(ids_dx, ids_dy)
 
 contains
 
@@ -91,7 +94,7 @@ contains
     use grid, only: nm_local, m_offset
     use time, only: dt, tt
     use time_stamp, only: put_time_stamp, timer_advance
-    use mp, only: proc0
+    use mp, only: proc0, halo_exchange_m
     use params, only: nupe_x , nupe_x_exp , nupe_z , nupe_z_exp , &
                       etape_x, etape_x_exp, etape_z, etape_z_exp, &
                       zi, nonlinear
@@ -146,6 +149,11 @@ contains
       endif
 
       !---------------  RK 1st step  ---------------
+      ! Fill the width-1 m-ghosts of g so the streaming stencil S_m can read
+      ! g_{m-1}/g_{m+1} across the comm_m split (no-op at nproc_m=1). Called
+      ! unconditionally: the parallel streaming term is linear and lives outside
+      ! the nonlinear guard.
+      call halo_exchange_m(g)
       ! Calculate nonlinear terms
       if(nonlinear) call get_nonlinear_terms(phi, psi, .true.)
       ! g brackets reuse the Phi/Psi real-space gradients just materialized above
@@ -193,15 +201,32 @@ contains
       enddo
       !$acc end data
 
-      ! ---- g: passive advection update (eSSPIFRK 1st step) ----
-      !$acc data present(exp_terms_g, exp_terms0_g, nonlin_g, kprp2, filter, g, g_tmp)
+      ! ---- g: advection + streaming update (eSSPIFRK 1st step) ----
+      ! Split into (A) a read-only pass that builds exp_terms_g from the m-halo
+      ! neighbours of g, and (B) an update pass. The split removes the m-ladder
+      ! read-after-write hazard (an in-place eSSPIFRK write to g_tmp(mm) racing a
+      ! neighbour thread reading g_tmp(mm+-1)); uniform across all three stages.
+      !$acc data present(exp_terms_g, exp_terms0_g, nonlin_g, g, kz)
+      !$acc parallel loop collapse(4)
+      do mm = 1, nm_local
+        do i = 1, nkx
+          do j = 1, nky_local
+            do k = 1, nkz
+              call get_ext_terms_g(exp_terms_g(k,j,i,mm), nonlin_g(k,j,i,mm), &
+                 g(k,j,i,mm-1), g(k,j,i,mm+1), kz(k), m_offset+mm-1)
+              exp_terms0_g(k,j,i,mm) = exp_terms_g(k,j,i,mm)
+            enddo
+          enddo
+        enddo
+      enddo
+      !$acc end data
+
+      !$acc data present(exp_terms_g, kprp2, filter, g, g_tmp)
       !$acc parallel loop collapse(4) private(imp_g0, imp_g1)
       do mm = 1, nm_local
         do i = 1, nkx
           do j = 1, nky_local
             do k = 1, nkz
-              call get_ext_terms_g(exp_terms_g(k,j,i,mm), nonlin_g(k,j,i,mm))
-              exp_terms0_g(k,j,i,mm) = exp_terms_g(k,j,i,mm)
               call get_imp_terms_tintg_g(imp_g0,          0.d0, kprp2(k,j,i), m_offset+mm-1)
               call get_imp_terms_tintg_g(imp_g1, 2.d0/3.d0*dt, kprp2(k,j,i), m_offset+mm-1)
               call eSSPIFRK1(g_tmp(k,j,i,mm), g(k,j,i,mm), &
@@ -273,6 +298,7 @@ contains
       endif
 
       ! Calculate nonlinear terms
+      call halo_exchange_m(g_tmp)
       if(nonlinear) call get_nonlinear_terms(phi_tmp, psi_tmp, .false.)
       if(nonlinear) call get_nonlinear_terms_g(g_tmp)
 
@@ -318,14 +344,30 @@ contains
       enddo
       !$acc end data
 
-      ! ---- g: passive advection update (eSSPIFRK 2nd step) ----
-      !$acc data present(exp_terms_g, nonlin_g, kprp2, filter, g, g_tmp)
+      ! ---- g: advection + streaming update (eSSPIFRK 2nd step) ----
+      ! (A) read-only exp_terms_g from g_tmp's m-halo; (B) in-place update. The
+      ! split is REQUIRED here: eSSPIFRK2 overwrites g_tmp(mm) while neighbour
+      ! threads still need g_tmp(mm+-1) for S_m -> hazard if fused.
+      !$acc data present(exp_terms_g, nonlin_g, g_tmp, kz)
+      !$acc parallel loop collapse(4)
+      do mm = 1, nm_local
+        do i = 1, nkx
+          do j = 1, nky_local
+            do k = 1, nkz
+              call get_ext_terms_g(exp_terms_g(k,j,i,mm), nonlin_g(k,j,i,mm), &
+                 g_tmp(k,j,i,mm-1), g_tmp(k,j,i,mm+1), kz(k), m_offset+mm-1)
+            enddo
+          enddo
+        enddo
+      enddo
+      !$acc end data
+
+      !$acc data present(exp_terms_g, kprp2, filter, g, g_tmp)
       !$acc parallel loop collapse(4) private(imp_g0, imp_g2)
       do mm = 1, nm_local
         do i = 1, nkx
           do j = 1, nky_local
             do k = 1, nkz
-              call get_ext_terms_g(exp_terms_g(k,j,i,mm), nonlin_g(k,j,i,mm))
               call get_imp_terms_tintg_g(imp_g0,          0.d0, kprp2(k,j,i), m_offset+mm-1)
               call get_imp_terms_tintg_g(imp_g2, 2.d0/3.d0*dt, kprp2(k,j,i), m_offset+mm-1)
               call eSSPIFRK2(g_tmp(k,j,i,mm), g_tmp(k,j,i,mm), g(k,j,i,mm), &
@@ -353,6 +395,7 @@ contains
 
       !---------------  RK 3rd step  ---------------
       ! Calculate nonlinear terms
+      call halo_exchange_m(g_tmp)
       if(nonlinear) call get_nonlinear_terms(phi_tmp, psi_tmp, .false.)
       if(nonlinear) call get_nonlinear_terms_g(g_tmp)
 
@@ -402,14 +445,29 @@ contains
       enddo
       !$acc end data
 
-      ! ---- g: passive advection update (eSSPIFRK 3rd step) ----
-      !$acc data present(exp_terms_g, exp_terms0_g, nonlin_g, kprp2, filter, g, g_tmp, g_new)
+      ! ---- g: advection + streaming update (eSSPIFRK 3rd step) ----
+      ! (A) read-only exp_terms_g from g_tmp's m-halo (exp_terms0_g was saved in
+      ! stage 1); (B) update g_new. Uniform split with stages 1/2.
+      !$acc data present(exp_terms_g, nonlin_g, g_tmp, kz)
+      !$acc parallel loop collapse(4)
+      do mm = 1, nm_local
+        do i = 1, nkx
+          do j = 1, nky_local
+            do k = 1, nkz
+              call get_ext_terms_g(exp_terms_g(k,j,i,mm), nonlin_g(k,j,i,mm), &
+                 g_tmp(k,j,i,mm-1), g_tmp(k,j,i,mm+1), kz(k), m_offset+mm-1)
+            enddo
+          enddo
+        enddo
+      enddo
+      !$acc end data
+
+      !$acc data present(exp_terms_g, exp_terms0_g, kprp2, filter, g, g_tmp, g_new)
       !$acc parallel loop collapse(4) private(imp_g0, imp_g2, imp_g3)
       do mm = 1, nm_local
         do i = 1, nkx
           do j = 1, nky_local
             do k = 1, nkz
-              call get_ext_terms_g(exp_terms_g(k,j,i,mm), nonlin_g(k,j,i,mm))
               call get_imp_terms_tintg_g(imp_g0,          0.d0, kprp2(k,j,i), m_offset+mm-1)
               call get_imp_terms_tintg_g(imp_g2, 2.d0/3.d0*dt, kprp2(k,j,i), m_offset+mm-1)
               call get_imp_terms_tintg_g(imp_g3,            dt, kprp2(k,j,i), m_offset+mm-1)
@@ -719,7 +777,8 @@ contains
     use grid, only: nlx, nlx_local, nly, nlz_padded
     use grid, only: nkx, nky_local, nkz, kprp2
     use grid, only: ntot
-    use params, only: zi
+    use grid, only: kz_max, nm
+    use params, only: zi, v_th
     use mp, only: proc0, max_allreduce, sum_allreduce, comm_fft
     use time, only: cfl, dt, tt, reset_method, increase_dt
     use time_stamp, only: put_time_stamp, timer_nonlinear_terms
@@ -824,6 +883,13 @@ contains
       call max_allreduce(max_vel_x)
       call max_allreduce(max_vel_y)
       dt_cfl = cfl*min(dlx/max_vel_x, dly/max_vel_y)
+      ! Kinetic streaming CFL: the symmetric-tridiagonal parallel free-streaming
+      ! operator on the Hermite ladder has spectral radius v_th*sqrt(2*nm)*kz_max
+      ! (largest Gauss-Hermite node ~ sqrt(2*nm)), so bound dt by the reciprocal.
+      ! kz_max/nm are machine-independent constants; folding into the same world
+      ! max-reduced dt keeps every comm in lockstep. Guard the v_th=0 limit.
+      if (v_th*kz_max > 0.d0) &
+        dt_cfl = min(dt_cfl, cfl/(v_th*sqrt(2.d0*dble(nm))*kz_max))
 
       if(proc0) then
         write (unit=cfl_unit, fmt="(100es30.21)") tt, dt_cfl, max_vel_x, max_vel_y
@@ -965,47 +1031,66 @@ contains
 
 !-----------------------------------------------!
 !> @author  YK
-!! @brief   Nonlinear E x B advection -{Phi,g_m} of every local Hermite moment.
-!!          Reuses the Phi real-space gradients (w_r) already materialized by
-!!          get_nonlinear_terms, so it must be called AFTER it in each RK stage.
+!! @brief   Nonlinear terms of the g_m equation for every local Hermite moment:
+!!          -{Phi,g_m} (passive E x B advection) and the perpendicular part of
+!!          the streaming -v_th{Psi,S_m} (grad_par = d_z + {Psi,.}/v_A, v_A=1).
+!!          Reuses the Phi/Psi real-space gradients (w_r) already materialized by
+!!          get_nonlinear_terms, so it must be called AFTER it in each RK stage,
+!!          and AFTER halo_exchange_m so S_m can read the m-halo neighbours.
 !-----------------------------------------------!
   subroutine get_nonlinear_terms_g(g_in)
     use grid, only: kx, ky
     use grid, only: nkx, nky_local, nkz
     use grid, only: nlx_local, nly, nlz_padded
-    use grid, only: nm_local, ntot
-    use params, only: zi
+    use grid, only: nm_local, m_offset, ntot
+    use params, only: zi, v_th
     use cuFFTmp, only: btran_c2r, ftran_r2c
     implicit none
     complex(8), dimension(:,:,:,0:), intent(in) :: g_in
-    integer :: i, j, k, mm
+    integer :: i, j, k, mm, m_glob
+    real(8) :: cp, cm
+    complex(8) :: sm
 
     do mm = 1, nm_local
-      ! 1. Perpendicular gradients of moment mm in Fourier space
+      ! streaming stencil coefficients for this moment (host copy of alpha; the
+      ! device path in get_ext_terms_g uses the bit-identical device copy)
+      m_glob = m_offset + mm - 1
+      call s_coeffs(m_glob, cp, cm)
+
+      ! 1. Perpendicular gradients of g_m and of the streaming stencil
+      !    S_m = cp*g_{m+1} + cm*g_{m-1} in Fourier space
       !$acc data present(g_in, wg, kx, ky)
-      !$acc parallel loop collapse(3)
+      !$acc parallel loop collapse(3) private(sm)
       do i = 1, nkx
         do j = 1, nky_local
           do k = 1, nkz
             wg(k,j,i,idg_dx) = zi*kx(i)*g_in(k,j,i,mm)
             wg(k,j,i,idg_dy) = zi*ky(j)*g_in(k,j,i,mm)
+            sm = cp*g_in(k,j,i,mm+1) + cm*g_in(k,j,i,mm-1)
+            wg(k,j,i,ids_dx) = zi*kx(i)*sm
+            wg(k,j,i,ids_dy) = zi*ky(j)*sm
           enddo
         enddo
       enddo
       !$acc end data
 
-      ! 2. Inverse FFT
+      ! 2. Inverse FFT of grad(g_m) and grad(S_m)
       call btran_c2r(wg(:,:,:,idg_dx), wg_r(:,:,:,idg_dx))
       call btran_c2r(wg(:,:,:,idg_dy), wg_r(:,:,:,idg_dy))
+      call btran_c2r(wg(:,:,:,ids_dx), wg_r(:,:,:,ids_dx))
+      call btran_c2r(wg(:,:,:,ids_dy), wg_r(:,:,:,ids_dy))
 
-      ! 3. Real-space Poisson bracket -{Phi, g_m}, reusing the Phi gradients in w_r
+      ! 3. Real-space combined bracket -{Phi,g_m} - v_th{Psi,S_m}, reusing the
+      !    Phi (idphi_*) and Psi (idpsi_*) gradients in w_r
       !$acc data present(w_r, wg_r, nonlin_r_g)
       !$acc parallel loop collapse(3)
       do i = 1, nlx_local
         do j = 1, nly
           do k = 1, nlz_padded
             nonlin_r_g(k,j,i) = - w_r(k,j,i,idphi_dx)*wg_r(k,j,i,idg_dy) &
-                                + w_r(k,j,i,idphi_dy)*wg_r(k,j,i,idg_dx)
+                                + w_r(k,j,i,idphi_dy)*wg_r(k,j,i,idg_dx) &
+                                - v_th*( w_r(k,j,i,idpsi_dx)*wg_r(k,j,i,ids_dy) &
+                                       - w_r(k,j,i,idpsi_dy)*wg_r(k,j,i,ids_dx) )
           enddo
         enddo
       enddo
@@ -1030,17 +1115,51 @@ contains
 
 !-----------------------------------------------!
 !> @author  YK
-!! @brief   Explicit terms of the g_m equation.
-!!          1-A: only the passive E x B advection -{Phi,g_m} is active; the
-!!          streaming term v_th*grad_par*S_m is wired in milestone 1-B (S_m=0).
+!! @brief   Symmetric-tridiagonal streaming coefficients of S_m:
+!!          S_m = cp*g_{m+1} + cm*g_{m-1},
+!!          cp = sqrt((m+1)/2), cm = sqrt(m/2), with the phi=alpha*g0
+!!          back-reaction folded into the m=1 lower coefficient (delta_{m,1}).
+!!          Shared by the linear (d_z) and nonlinear ({Psi,.}) streaming paths
+!!          so their coefficients can never diverge. Callable on host and device.
 !-----------------------------------------------!
-  subroutine get_ext_terms_g(exp_out, nonlin_in)
+  subroutine s_coeffs(m_glob, cp, cm)
     !$acc routine seq
+    use params, only: alpha
+    implicit none
+    integer, intent(in)  :: m_glob
+    real(8), intent(out) :: cp, cm
+
+    cp = sqrt(dble(m_glob + 1)/2.d0)
+    cm = sqrt(dble(m_glob    )/2.d0)      ! = 0 at m=0 (boundary g_{-1}=0)
+    if (m_glob == 1) cm = cm*(1.d0 + alpha)
+
+  end subroutine s_coeffs
+
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Explicit (integrating-factor) terms of the g_m equation.
+!!          Adds the LINEAR parallel streaming -v_th*d_z S_m = -v_th*zi*kz*S_m
+!!          to the nonlinear input -{Phi,g_m} - v_th{Psi,S_m}. Kept linear and
+!!          unconditional (called every RK stage, no nonlinear guard) so that a
+!!          nonlinear=F run still phase-mixes (linear Landau/recurrence tests).
+!!          g_lo/g_hi are g_{m-1}/g_{m+1} (m-halo neighbours; 0 at the global
+!!          Hermite boundaries), so S_m truncates as g_{Nm}=0 at the top moment.
+!-----------------------------------------------!
+  subroutine get_ext_terms_g(exp_out, nonlin_in, g_lo, g_hi, kz, m_glob)
+    !$acc routine seq
+    use params, only: zi, v_th
     implicit none
     complex(8), intent(out) :: exp_out
-    complex(8), intent(in ) :: nonlin_in
+    complex(8), intent(in ) :: nonlin_in, g_lo, g_hi
+    real(8),    intent(in ) :: kz
+    integer,    intent(in ) :: m_glob
+    real(8)    :: cp, cm
+    complex(8) :: sm
 
-    exp_out = nonlin_in
+    call s_coeffs(m_glob, cp, cm)
+    sm = cp*g_hi + cm*g_lo
+    exp_out = nonlin_in - v_th*zi*kz*sm
 
   end subroutine get_ext_terms_g
 
@@ -1126,9 +1245,9 @@ contains
       allocate(g_tmp       (nkz       , nky_local, nkx      , 0:nm_local+1 ), source=(0.d0, 0.d0))
       allocate(exp_terms_g (nkz       , nky_local, nkx      , nm_local     ), source=(0.d0, 0.d0))
       allocate(exp_terms0_g(nkz       , nky_local, nkx      , nm_local     ), source=(0.d0, 0.d0))
-      allocate(wg          (nkz       , nky_local, nkx      , 2            ), source=(0.d0, 0.d0))
+      allocate(wg          (nkz       , nky_local, nkx      , 4            ), source=(0.d0, 0.d0))
       allocate(nonlin_g    (nkz       , nky_local, nkx      , nm_local     ), source=(0.d0, 0.d0))
-      allocate(wg_r        (nlz_padded, nly      , nlx_local, 2            ), source=0.d0)
+      allocate(wg_r        (nlz_padded, nly      , nlx_local, 4            ), source=0.d0)
       allocate(nonlin_r_g  (nlz_padded, nly      , nlx_local               ), source=0.d0)
 
       !$acc enter data copyin(g_new)

@@ -1,0 +1,65 @@
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=4:mpiprocs=1
+#PBS -l walltime=00:30:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N krmhd_rec
+
+#=====================================================================
+#  Recurrence physics sweep (diagnostic, not a pass/fail gate).
+#  Single-mode linear free-streaming (nonlinear=F, k_perp=0, kz=1, v_th=1).
+#  Goal: separate the intrinsic (reversible) ballistic phase-mixing echo
+#  from the finite-Hermite TRUNCATION recurrence, and show the truncation
+#  recurrence (i) scales with nm and (ii) is suppressed by a hypercollision.
+#  Generates inputs from landau_nu0.in by editing nm / nu_hyper_m / nexp_m.
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+ROOT=${PBS_O_WORKDIR}
+BIN=${ROOT}/../gallope
+RUN=${ROOT}/runs_recur
+rm -rf "${RUN}"; mkdir -p "${RUN}"
+
+# gen NM NU NEXP OUTFILE : derive an input from landau_nu0.in
+gen () {
+  sed -e "s/^  nm  = .*/  nm  = $1/" \
+      -e "s/^  nu_hyper_m .*/  nu_hyper_m    = $2/" \
+      -e "s/^  nexp_m .*/  nexp_m        = $3/" \
+      "${ROOT}/landau_nu0.in" > "$4"
+}
+
+run () { # NAME NM NU NEXP
+  name=$1
+  d="${RUN}/${name}"; mkdir -p "${d}/restart" "${d}/out2d" "${d}/out3d"
+  gen "$2" "$3" "$4" "${d}/gallope.in"
+  ( cd "${d}" && mpirun -np 4 "${BIN}" <gallope.in >out.std 2>&1 )
+  grep -h "\[g_probe\]" "${d}/out.std" | sed 's/.*= //' > "${RUN}/${name}.dat"
+  # first deep null (global min) and the recurrence peak that follows it
+  read tnull vnull <<EOF
+$(awk 'NR==1||$3<m{m=$3;t=$1} END{printf "%.3f %.4e", t, m}' "${RUN}/${name}.dat")
+EOF
+  read trec vrec <<EOF
+$(awk -v tn="$tnull" '$1>tn{if($3>r){r=$3;t=$1}} END{printf "%.3f %.4e", t, r+0}' "${RUN}/${name}.dat")
+EOF
+  # also: the earliest local-min time (candidate truncation recurrence, may be
+  # earlier than the deep intrinsic null) -- first index where g0var turns up
+  tup=$(awk 'NR>1{if($3>prev && !done){printf "%.3f", $1; done=1}} {prev=$3}' "${RUN}/${name}.dat")
+  echo "[recur] ${name}: null(t=${tnull},v=${vnull})  peak(t=${trec},v=${vrec})  first_upturn_t=${tup:-none}  sqrt(2nm)=$(awk -v n=$2 'BEGIN{printf "%.2f", sqrt(2*n)}')"
+}
+
+echo "================ recurrence sweep ================"
+run nm4    4   0.d0   6
+run nm8    8   0.d0   6
+run nm16   16  0.d0   6
+run nm32   32  0.d0   6
+run nm4_hyp  4   1.d2   6    # strong hypercollision at truncation (nexp=6)
+run nm8_hyp  8   1.d2   6
+echo "================ done ================"

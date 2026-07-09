@@ -135,7 +135,7 @@ contains
 !-----------------------------------------------!
   subroutine init_single_mode
     use grid, only: nkx, nky_local, nkz
-    use grid, only: kprp2
+    use grid, only: kprp2, kx, ky
     use mp, only: proc0, proc_id
     implicit none
     integer :: i, j, k
@@ -144,12 +144,16 @@ contains
       print '("Single mode initialization")'
     endif
 
-    !$acc data present(phi, psi, kprp2)
+    ! Seed the single global mode (kx=ky=0, kz=2pi/lz) by WAVENUMBER, not by
+    ! local index: ky is split across comm_fft, so global ky=0 lives only on
+    ! iproc_fft=0 at j=1. A local "j==1" test would fire on every fft rank and
+    ! seed one spurious mode per rank.
+    !$acc data present(phi, psi, kprp2, kx, ky)
     !$acc parallel loop collapse(3)
     do i = 1, nkx
       do j = 1, nky_local
         do k = 1, nkz
-          if (i == 1 .and. j == 1 .and. k == 2) then
+          if (kx(i) == 0.d0 .and. ky(j) == 0.d0 .and. k == 2) then
             phi(k, j, i) = 1.d0
             psi(k, j, i) = 1.d0
           endif
@@ -318,6 +322,7 @@ contains
     use grid, only: nlx_local, nly, nlz_padded
     use grid, only: nkx, nky_local, nkz
     use grid, only: ntot, nm_local, m_offset
+    use grid, only: kx, ky
     use mp, only: iproc_fft
     use cuFFTmp, only: ftran_r2c
     implicit none
@@ -326,15 +331,22 @@ contains
     integer :: seedsize, i, j, k, mm, m_glob
 
     if(init_type == 'single_mode') then
-      ! One perpendicular mode per moment; amplitude distinct per global m.
-      !$acc data present(g)
+      ! Single (k,m) mode: only g_0 is excited (unit amplitude) at the single
+      ! parallel mode (kx=0, ky=0, kz(2)); every higher moment starts at zero.
+      ! Under nonlinear=F this is the parallel free-streaming IC for the linear
+      ! Landau-damping / Hermite-recurrence test. Only the rank holding the
+      ! global m=0 moment writes, so the field stays P_m-invariant.
+      ! Seed by WAVENUMBER (kx=ky=0 lives only on iproc_fft=0 at the first local
+      ! ky), not by local index: a local "j==1" test fires on every fft rank and
+      ! would seed one spurious mode per rank, breaking the single-mode IC.
+      !$acc data present(g, kx, ky)
       !$acc parallel loop collapse(4)
       do mm = 1, nm_local
         do i = 1, nkx
           do j = 1, nky_local
             do k = 1, nkz
-              if (i == 1 .and. j == 1 .and. k == 2) then
-                g(k,j,i,mm) = dcmplx(dble(m_offset+mm-1) + 1.d0, 0.d0)
+              if (m_offset+mm-1 == 0 .and. kx(i) == 0.d0 .and. ky(j) == 0.d0 .and. k == 2) then
+                g(k,j,i,mm) = (1.d0, 0.d0)
               else
                 g(k,j,i,mm) = (0.d0, 0.d0)
               endif

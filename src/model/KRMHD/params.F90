@@ -70,6 +70,7 @@ contains
     
     character(len=100), intent(in) :: filename
     integer  :: unit, ierr
+    real(8)  :: kappa
 
     namelist /operation_parameters/ nonlinear
     namelist /physical_parameters/ nupe_x , nupe_x_exp , nupe_z , nupe_z_exp , &
@@ -119,6 +120,19 @@ contains
     read(unit,nml=physical_parameters,iostat=ierr)
         if (ierr/=0) write(*,*) "Reading physical_parameters failed"
     close(unit)
+
+    ! ion-sound coupling alpha from (beta_i, tau, Zcharge) [Meyrand et al. 2019].
+    !   kappa = sqrt((1 + tau/Z)^2 + 1/beta_i^2)
+    !   alpha = 1 / (tau/Z - 1/beta_i + alpha_root*kappa)
+    ! The +/-kappa roots are the two compressive modes; alpha_root (+1/-1) picks
+    ! one for the single g-hierarchy of phase 1. For physical inputs (beta_i,
+    ! tau, Z > 0) the denominator is bounded away from zero for either root.
+    if (beta_i > 0.d0) then
+      kappa = sqrt((1.d0 + tau/Zcharge)**2 + 1.d0/beta_i**2)
+      alpha = 1.d0/(tau/Zcharge - 1.d0/beta_i + dble(alpha_root)*kappa)
+    else
+      alpha = 0.d0
+    endif
 
     !$acc update device(nupe_x , nupe_x_exp , nupe_z , nupe_z_exp)
     !$acc update device(etape_x, etape_x_exp, etape_z, etape_z_exp)

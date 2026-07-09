@@ -383,22 +383,36 @@ contains
   subroutine check_g_consistency
     use MPI
     use mp, only: proc0, comm_fm, comm_s, nproc_s
-    use grid, only: nkx, nky_local, nkz, nm_local
+    use grid, only: nkx, nky_local, nkz, nm_local, m_offset
     use fields, only: g
+    use time, only: tt
+    use params, only: v_th, alpha, beta_i, tau, Zcharge, alpha_root
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     integer :: i, j, k, mm, nbad, ierr
     real(8) :: re, im
     integer(int64) :: h, h_fm, h_or, h_and
+    ! one-time echo of the derived ion-sound coupling alpha for the unit check
+    logical, save :: alpha_banner = .true.
+    ! streaming diagnostics probe (minimal; superseded by the 1-C spectra):
+    !   Wg_tot = 1/2 sum_k sum_m |g_{m,k}|^2   (Hermite free energy alone; NOT
+    !            conserved when alpha/=0 -- the m=0 rung feeds it as g_0 mixes)
+    !   g0var  = sum_k |g_{0,k}|^2             (m=0 moment, for Landau/recurrence)
+    !   W_eq6  = Wg_tot + 1/2 alpha sum_k |g_{0,k}|^2   (Meyrand 2019 eq 6 free
+    !            energy incl. the electrostatic term; THIS is streaming-conserved)
+    real(8) :: Wg_tot, g0var, Wg_red, g0_red, W_eq6
 
     !$acc update host(g)
     h = 0_int64
+    Wg_tot = 0.d0; g0var = 0.d0
     do mm = 1, nm_local
       do i = 1, nkx
         do j = 1, nky_local
           do k = 1, nkz
             re = dble(g(k,j,i,mm)); im = aimag(g(k,j,i,mm))
             h = ieor(h, transfer(re, 0_int64)); h = ieor(h, transfer(im, 0_int64))
+            Wg_tot = Wg_tot + re*re + im*im
+            if (m_offset == 0 .and. mm == 1) g0var = g0var + re*re + im*im
           end do
         end do
       end do
@@ -406,6 +420,16 @@ contains
 
     ! P_m-invariant global g checksum over the (m x fft) plane.
     call mpi_allreduce(h, h_fm, 1, MPI_INTEGER8, MPI_BXOR, comm_fm, ierr)
+
+    ! Sum the probe partial sums over the same (m x fft) plane (g is redundant
+    ! across comm_s, so comm_fm assembles the whole field exactly once). These
+    ! are FP magnitudes for physics observation only, never a bit PASS/FAIL.
+    call mpi_allreduce(Wg_tot, Wg_red, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_fm, ierr)
+    call mpi_allreduce(g0var,  g0_red, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_fm, ierr)
+    Wg_red = 0.5d0*Wg_red
+    ! Meyrand 2019 eq (6) free energy: the electrostatic term restores the
+    ! quadratic invariant that the streaming operator conserves for nu=0.
+    W_eq6  = Wg_red + 0.5d0*alpha*g0_red
 
     ! g is redundant across comm_s: the plane checksum must match every s.
     nbad = 0
@@ -416,9 +440,17 @@ contains
     endif
 
     if (proc0) then
+      if (alpha_banner) then
+        write (*, '("[alpha_check] beta_i tau Zcharge alpha_root = ", &
+          &3es24.16e3, i3)') beta_i, tau, Zcharge, alpha_root
+        write (*, '("[alpha_check] v_th alpha = ", 2es24.16e3)') v_th, alpha
+        alpha_banner = .false.
+      endif
       write (*, '("[check_g_consistency] global g XOR checksum (comm_fm) = ", z16.16)') h_fm
       if (nbad /= 0) write (*, &
         '("[check_g_consistency] FAIL: comm_s redundancy mismatch")')
+      write (*, '("[g_probe] tt Wg_tot g0var W_eq6 = ", 4es24.16e3)') &
+        tt, Wg_red, g0_red, W_eq6
     endif
   end subroutine check_g_consistency
 
