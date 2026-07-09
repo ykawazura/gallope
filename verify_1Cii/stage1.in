@@ -1,0 +1,98 @@
+!--------------------------------------------------!
+!  1-C-ii Stage 1 (LINEAR contrast: forward flux).  !
+!  Pins the ABSOLUTE sign of Gamma_m. nonlinear=F,   !
+!  init_type='single_mode' seeds ONLY g_0 at         !
+!  (kx=0, ky=0, kz(2)); with lz=2*pi the parallel    !
+!  mode is kz=1 and v_th=1. Free energy phase-mixes  !
+!  UP the Hermite ladder (linear Landau), a forward  !
+!  cascade in m, so the flux out of every {0..m} box !
+!  must be POSITIVE while mixing. The run stops at   !
+!  t=8, before the nm-truncation recurrence null     !
+!  (~2 sqrt(2 nm) ~ 11), so it is ENTIRELY forward-  !
+!  mixing. All energy stays at k_perp=0 (bin 1), so  !
+!  the sign check reads the SIGNED Gamma_m at the    !
+!  peak-|Gamma| box over intermediate m (robust:     !
+!  the dominant flux, positive for a forward         !
+!  cascade; a sign error flips it negative).         !
+!  This is the linear-cascade contrast to the        !
+!  turbulent stochastic echo (Gamma_m ~ 0), Stage 2. !
+!  nm=16, 8x8x16, lz=2*pi, P_m=1 (nproc=4).          !
+!--------------------------------------------------!
+&parallelization
+  P_m = 1
+  P_s = 1
+/
+
+&box_parameters
+  lx = 1.0
+  ly = 1.0
+  lz = 6.283185307179586d0
+  nlx = 8
+  nly = 8
+  nlz = 16
+  nm  = 16
+/
+
+&time_parameters
+  dt    = 1.0d-2
+  nstep = 800
+  cfl   = 2.0d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+&operation_parameters
+  nonlinear          = F
+  write_hermite_flux = T
+/
+
+&physical_parameters
+  nupe_x      = 0.d0
+  nupe_x_exp  = 4
+  etape_x     = 0.d0
+  etape_x_exp = 4
+  nupe_z      = 0.d0
+  nupe_z_exp  = 4
+  etape_z     = 0.d0
+  etape_z_exp = 4
+
+  v_th          = 1.d0
+  mu_hyper_perp = 0.d0
+  nexp_perp     = 4
+  nu_hyper_m    = 0.d0
+  nexp_m        = 6
+  beta_i        = 1.d0
+  tau           = 1.d0
+  Zcharge       = 1.d0
+  alpha_root    = 1
+/
+
+&initial_condition
+  init_type = 'single_mode'
+  init_seed = 42
+/
+
+&force
+  driven = F
+/
+
+&terminate
+  max_wall_time   = 0.5
+  terminate_file_name = 'terminate'
+/
+
+&diagnostics_parameters
+  write_intvl         = 0.1d0
+  write_intvl_2D      = 0.0d0
+  write_intvl_3D      = 0.0d0
+  SF2_nsample = 100000
+/
+
+&restart_parameters
+  save_restart_intvl = 100.0d0
+  restart_dir = './restart/'
+/

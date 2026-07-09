@@ -45,14 +45,14 @@ contains
     use mp, only: proc0
     use grid, only: kprp2, kz2, kprp2_max, kz2_max
     use grid, only: kx, ky, kz
-    use grid, only: nkx, nky_local, nkz
+    use grid, only: nkx, nky_local, nkz, nm
     use grid, only: nlx, nly, nlz_padded
     use fields, only: phi, psi
     use fields, only: phi_old, psi_old
     use mp, only: sum_reduce, comm_fft, nproc_m, nproc_s
     use time, only: dt
     use time_stamp, only: put_time_stamp, timer_diagnostics_total
-    use params, only: zi, &
+    use params, only: zi, alpha, write_hermite_flux, &
                       nupe_x , nupe_x_exp , nupe_z , nupe_z_exp , &
                       etape_x, etape_x_exp, etape_z, etape_z_exp
     use force, only: fphi, fpsi, fphi_old, fpsi_old
@@ -76,6 +76,11 @@ contains
 
     real(8), dimension(:, :), allocatable :: upe2_bin , bpe2_bin      ! [kprp, kz]
     real(8), dimension(:, :), allocatable :: zppe2_bin, zmpe2_bin
+    real(8), dimension(:, :, :), allocatable :: g2bin                 ! [kprp, m, kz]
+    real(8), dimension(:, :, :), allocatable :: gam_bin               ! [kprp, m, kz] Hermite flux (eq 9)
+    real(8), dimension(:), allocatable :: Wm                          ! per-m free energy
+    real(8), dimension(:), allocatable :: gam_kint                    ! k-integrated Hermite flux Gamma(m)
+    real(8) :: W_free                                                 ! Meyrand 2019 eq (6)
     complex(8) :: phi_mid, psi_mid, jpa_mid, fphi_mid, fpsi_mid
     complex(8) :: zppe_mid, zmpe_mid, fzppe_mid, fzmpe_mid
 
@@ -102,12 +107,19 @@ contains
     allocate (zppe2_bin(1:nkpolar, nkz)); zppe2_bin = 0.d0
     allocate (zmpe2_bin(1:nkpolar, nkz)); zmpe2_bin = 0.d0
 
+    allocate (g2bin(1:nkpolar, nm, nkz)); g2bin = 0.d0
+    allocate (gam_bin(1:nkpolar, nm, nkz)); gam_bin = 0.d0
+    allocate (Wm(nm)); Wm = 0.d0
+    allocate (gam_kint(nm)); gam_kint = 0.d0
+
     ! Create work arrays on device
     !$acc enter data create(upe2, bpe2, upe2old, bpe2old)
     !$acc enter data create(upe2dissip_x, upe2dissip_z, bpe2dissip_x, bpe2dissip_z)
     !$acc enter data create(p_phi, p_psi, p_xhl, zppe2, zmpe2)
     !$acc enter data create(upe2_bin, bpe2_bin)
     !$acc enter data create(zppe2_bin, zmpe2_bin)
+    !$acc enter data create(g2bin)
+    !$acc enter data create(gam_bin)
 
     ! Initialize reduction variables
     upe2_sum       = 0.d0
@@ -230,7 +242,20 @@ contains
     ! Transfer binned spectra from device to host for I/O
     !$acc update host(upe2_bin, bpe2_bin)
     !$acc update host(zppe2_bin, zmpe2_bin)
-  
+
+    ! Per-m Hermite spectrum + exact per-m free energy (assembled on proc0 via
+    ! comm_fm inside the helper: it already updates host and reduces).
+    call get_g_spectrum_2d(g2bin, Wm)
+    ! Meyrand 2019 eq (6) free energy: sum_m W_m + alpha*W_{m=0} (Wm(1)=m=0 rung).
+    ! Only proc0 holds the fully comm_fm-reduced Wm; other ranks keep partials.
+    W_free = 0.d0
+    if (proc0) W_free = sum(Wm) + alpha*Wm(1)
+
+    ! Hermite free-energy flux Gamma_m(k_perp) (Meyrand 2019 eq 9). Costly (extra
+    ! FFTs to reconstruct grad_par S_m), so it is gated behind write_hermite_flux.
+    ! When disabled, gam_bin stays zero and is not written to NetCDF.
+    if (write_hermite_flux) call get_hermite_flux_2d(gam_bin, gam_kint)
+
     if (proc0) call put_time_stamp(timer_diagnostics_total)
     call loop_io( &
                   upe2_sum, bpe2_sum, &
@@ -241,7 +266,9 @@ contains
                   !
                   nkpolar, &
                   upe2_bin , bpe2_bin , &
-                  zppe2_bin, zmpe2_bin  &
+                  zppe2_bin, zmpe2_bin, &
+                  !
+                  nm, g2bin, Wm, W_free, gam_bin, gam_kint &
                 )
 
     !$acc exit data delete(upe2, bpe2)
@@ -251,6 +278,8 @@ contains
     !$acc exit data delete(zppe2, zmpe2)
     !$acc exit data delete(upe2_bin, bpe2_bin)
     !$acc exit data delete(zppe2_bin, zmpe2_bin)
+    !$acc exit data delete(g2bin)
+    !$acc exit data delete(gam_bin)
     deallocate(upe2)
     deallocate(bpe2)
     deallocate(upe2old)
@@ -269,6 +298,10 @@ contains
     deallocate (bpe2_bin)
     deallocate (zppe2_bin)
     deallocate (zmpe2_bin)
+    deallocate (g2bin)
+    deallocate (gam_bin)
+    deallocate (Wm)
+    deallocate (gam_kint)
 
     ! With P_m>1 (and/or P_s>1) every comm_fft group redundantly solves the
     ! same problem; verify the fields stay bitwise identical across groups.
@@ -276,6 +309,297 @@ contains
     ! Global g checksum (P_m-invariant); printed for cross-run split/IO checks.
     call check_g_consistency
   end subroutine loop_diagnostics
+
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Per-m Hermite spectrum (1/2)|g_m|^2 binned over
+!!          kperp, plus the exact per-m free energy Wm.
+!!          Mirrors the RMHD polar binning (get_polar_spectrum_2d)
+!!          but (a) writes into the global Hermite slot
+!!          mg = m_offset + mm and (b) assembles kperp (comm_fft)
+!!          and m (comm_m) together with a single comm_fm
+!!          reduction, so no per-axis double reduce is needed.
+!!          The kz/=1 factor-of-2 follows the RMHD energy
+!!          convention (compensates the unstored negative-kz half).
+!-----------------------------------------------!
+  subroutine get_g_spectrum_2d(g2bin, Wm)
+    use mp, only: sum_reduce, comm_fm
+    use grid, only: nkx, nky_local, nkz
+    use grid, only: nm, nm_local, m_offset
+    use grid, only: kx, ky
+    use fields, only: g
+    use utils, only: cabs2
+    implicit none
+    real(8), dimension(1:nkpolar, nm, nkz), intent(out) :: g2bin  ! device (present)
+    real(8), dimension(nm),                 intent(out) :: Wm     ! host
+    real(8) :: k2, g2, Wsum
+    integer :: i, j, k, mm, mg, idx
+
+    ! Zero the binned accumulator on device and the host per-m energy.
+    !$acc parallel loop collapse(3) default(present)
+    do k = 1, nkz
+      do mg = 1, nm
+        do idx = 1, nkpolar
+          g2bin(idx, mg, k) = 0.d0
+        end do
+      end do
+    end do
+    !$acc end parallel loop
+    Wm = 0.d0
+
+    ! Bin (1/2)|g_m|^2 into the owned global slot mg; the unowned slots stay 0
+    ! so the comm_fm reduction assembles the full (kperp x m) spectrum exactly.
+    do mm = 1, nm_local
+      mg   = m_offset + mm
+      Wsum = 0.d0
+      !$acc parallel loop collapse(3) gang vector default(present) &
+      !$acc& private(k2, g2, idx) reduction(+:Wsum)
+      do i = 1, nkx
+        do j = 1, nky_local
+          do k = 1, nkz
+            g2 = 0.5d0*cabs2(g(k, j, i, mm))
+            ! compensate the unstored negative-kz half (RMHD convention)
+            if (k /= 1) g2 = 2.0d0*g2
+            Wsum = Wsum + g2
+            k2 = kx(i)**2 + ky(j)**2
+            do idx = 1, nkpolar - 1
+              if (k2 >= kpbin(idx)**2 .and. k2 < kpbin(idx+1)**2) then
+                !$acc atomic update
+                g2bin(idx, mg, k) = g2bin(idx, mg, k) + g2
+                exit  ! found the bin
+              endif
+            enddo
+          end do
+        end do
+      end do
+      !$acc end parallel loop
+      Wm(mg) = Wsum
+    end do
+
+    ! Bring the binned spectrum to host and assemble both axes (kperp over
+    ! comm_fft, m over comm_m) in one reduction on the comm_fm plane. g is
+    ! redundant across comm_s, so comm_fm covers the whole field exactly once.
+    !$acc update host(g2bin)
+    call sum_reduce(g2bin, 0, comm=comm_fm)
+    call sum_reduce(Wm,    0, comm=comm_fm)
+  end subroutine get_g_spectrum_2d
+
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Hermite free-energy flux Gamma_m(k_perp) (Meyrand 2019 eq 9):
+!!            Gamma_m = sum_{m'=0}^{m} (1 + alpha*delta_{m',0})
+!!                                     * v_th * Re[ conjg(g_{m'}) . grad_par S_{m'} ]
+!!          binned over k_perp, with the parallel-streaming operator
+!!            grad_par S_m = zi*kz*S_m + {Psi, S_m},  S_m = cp*g_{m+1} + cm*g_{m-1}.
+!!          Two outputs are produced from the same per-rung source src_m:
+!!            gam_bin (k_perp,m) : polar-binned flux spectrum (echo diagnostic);
+!!            gam_kint(m)        : k-integrated flux Gamma(m) = sum_k src (all modes).
+!!          Telescoping: the LINEAR streaming zi*kz*S_m is k-diagonal, so sum_m src_m
+!!          = 0 at EVERY fixed k (weighted antisymmetry w_m*cp_m = w_{m+1}*cm_{m+1}
+!!          + ghost-0 boundaries). The {Psi,S_m} bracket, however, redistributes free
+!!          energy across k_perp (a perpendicular transfer), so sum_m src_m(k) /= 0
+!!          per k -- it cancels only AFTER the k-sum (int a{Psi,b} = -int b{Psi,a}).
+!!          Hence gam_kint(nm-1) = sum_{m,k} src_m ~ 0 is the correct telescoping
+!!          invariant (= -dW/dt at mu=nu=0); the binned gam_bin top slot is NON-zero
+!!          per k for the bracket and must NOT be used as a telescoping check. The
+!!          polar binning also drops the k_perp>k_max,1D Cartesian corners, which the
+!!          unbinned gam_kint retains -- another reason gam_kint carries the invariant.
+!!
+!!          The streaming coefficients (cp, cm) replicate advance.F90:s_coeffs
+!!          (canonical) inline: the Makefile compiles diagnostics.F90 BEFORE
+!!          advance.F90 (no dependency tracking), so `use advance` is unavailable
+!!          here. Any drift from the canonical coefficients is caught by the
+!!          telescoping (Stage-0) check |gam_kint(nm-1)|/W << 1.
+!!
+!!          The {Psi, S_m} bracket is gated by `nonlinear` to match the operator
+!!          the run actually integrates (get_nonlinear_terms_g is nonlinear-guarded;
+!!          the linear -v_th*d_z S_m is unconditional). It is reconstructed with the
+!!          code's own grad_par (btran gradients -> real bracket -> ftran /ntot, same
+!!          sign/normalization as advance.F90) so diagnostic and dynamics never diverge.
+!!
+!!          Assembled onto proc0 with the same single comm_fm reduction idiom as
+!!          get_g_spectrum_2d (global slot mg = m_offset + mm); the cumulative sum
+!!          over m is then done on proc0 (the only rank holding the full spectrum).
+!-----------------------------------------------!
+  subroutine get_hermite_flux_2d(gam_bin, gam_kint)
+    use mp, only: sum_reduce, comm_fm, proc0, halo_exchange_m
+    use grid, only: nkx, nky_local, nkz
+    use grid, only: nlx_local, nly, nlz_padded, ntot
+    use grid, only: nm, nm_local, m_offset
+    use grid, only: kx, ky, kz
+    use fields, only: g, psi
+    use params, only: zi, v_th, alpha, nonlinear
+    use cuFFTmp, only: btran_c2r, ftran_r2c
+    implicit none
+    real(8), dimension(1:nkpolar, nm, nkz), intent(out) :: gam_bin  ! device (present)
+    real(8), dimension(nm),                 intent(out) :: gam_kint ! host (k-integrated)
+    complex(8), allocatable, dimension(:,:,:) :: sk, gx, gy, brk         ! spectral scratch
+    real(8),    allocatable, dimension(:,:,:) :: pdx, pdy, sdx, sdy, brr ! real scratch
+    real(8) :: k2, src, cp, cm, wt, Ssum
+    integer :: i, j, k, mm, mg, m_glob, idx
+
+    ! g_{m+-1} live in the m-halo; refresh it (nproc_m==1 -> early return, ghosts
+    ! stay 0 = global Hermite boundary). Safe: solve() re-halos before it reads
+    ! ghosts, and get_g_spectrum_2d only touches interior moments.
+    call halo_exchange_m(g)
+
+    allocate(sk (nkz, nky_local, nkx))
+    allocate(gx (nkz, nky_local, nkx))
+    allocate(gy (nkz, nky_local, nkx))
+    allocate(brk(nkz, nky_local, nkx))
+    allocate(pdx(nlz_padded, nly, nlx_local))
+    allocate(pdy(nlz_padded, nly, nlx_local))
+    allocate(sdx(nlz_padded, nly, nlx_local))
+    allocate(sdy(nlz_padded, nly, nlx_local))
+    allocate(brr(nlz_padded, nly, nlx_local))
+    !$acc enter data create(sk, gx, gy, brk, pdx, pdy, sdx, sdy, brr)
+
+    ! Zero the binned accumulator (owned + unowned slots) so the comm_fm reduction
+    ! assembles the full (k_perp x m) flux spectrum exactly.
+    !$acc parallel loop collapse(3) default(present)
+    do k = 1, nkz
+      do mg = 1, nm
+        do idx = 1, nkpolar
+          gam_bin(idx, mg, k) = 0.d0
+        end do
+      end do
+    end do
+    !$acc end parallel loop
+    gam_kint = 0.d0   ! host k-integrated flux accumulator (unowned m slots stay 0)
+
+    ! Zero the bracket once; when nonlinear=F it stays 0 for every moment (grad_par
+    ! reduces to zi*kz*S_m), when nonlinear=T it is overwritten per moment below.
+    !$acc parallel loop collapse(3) default(present)
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          brk(k,j,i) = (0.d0, 0.d0)
+        end do
+      end do
+    end do
+    !$acc end parallel loop
+
+    ! Perpendicular gradients of Psi (once), needed only for the {Psi, S_m} bracket.
+    if (nonlinear) then
+      !$acc parallel loop collapse(3) default(present)
+      do i = 1, nkx
+        do j = 1, nky_local
+          do k = 1, nkz
+            gx(k,j,i) = zi*kx(i)*psi(k,j,i)
+            gy(k,j,i) = zi*ky(j)*psi(k,j,i)
+          end do
+        end do
+      end do
+      !$acc end parallel loop
+      call btran_c2r(gx, pdx)   ! d_x Psi
+      call btran_c2r(gy, pdy)   ! d_y Psi
+    endif
+
+    do mm = 1, nm_local
+      m_glob = m_offset + mm - 1
+      mg     = m_offset + mm          ! global 1-based slot (physical m = mg-1)
+      ! streaming stencil coefficients (canonical: advance.F90:s_coeffs)
+      cp = sqrt(dble(m_glob + 1)/2.d0)
+      cm = sqrt(dble(m_glob    )/2.d0)         ! = 0 at m=0 (boundary g_{-1}=0)
+      if (m_glob == 1) cm = cm*(1.d0 + alpha)
+      ! per-rung free-energy weight (1 + alpha*delta_{m,0})
+      wt = 1.d0
+      if (m_glob == 0) wt = 1.d0 + alpha
+
+      ! S_m in Fourier space and its perpendicular gradients (gx=d_x, gy=d_y).
+      !$acc parallel loop collapse(3) default(present)
+      do i = 1, nkx
+        do j = 1, nky_local
+          do k = 1, nkz
+            sk(k,j,i) = cp*g(k,j,i,mm+1) + cm*g(k,j,i,mm-1)
+            gx(k,j,i) = zi*kx(i)*sk(k,j,i)
+            gy(k,j,i) = zi*ky(j)*sk(k,j,i)
+          end do
+        end do
+      end do
+      !$acc end parallel loop
+
+      if (nonlinear) then
+        ! Real-space bracket {Psi, S_m} = d_x Psi d_y S_m - d_y Psi d_x S_m,
+        ! reconstructed with the code's own grad_par (same sign as advance).
+        call btran_c2r(gx, sdx)   ! d_x S_m
+        call btran_c2r(gy, sdy)   ! d_y S_m
+        !$acc parallel loop collapse(3) default(present)
+        do i = 1, nlx_local
+          do j = 1, nly
+            do k = 1, nlz_padded
+              brr(k,j,i) = pdx(k,j,i)*sdy(k,j,i) - pdy(k,j,i)*sdx(k,j,i)
+            end do
+          end do
+        end do
+        !$acc end parallel loop
+        call ftran_r2c(brr, brk)  ! {Psi, S_m} in Fourier space (needs /ntot below)
+      endif
+
+      ! Per-rung source src = v_th * wt * Re[ conjg(g_m) . grad_par S_m ],
+      !   grad_par S_m = zi*kz*S_m + {Psi, S_m}/ntot   (bracket = 0 if nonlinear=F),
+      ! binned over k_perp into the owned global slot mg. The kz/=1 factor-of-2
+      ! matches the W_m convention (compensates the unstored negative-kz half); it
+      ! does not break telescoping since sum_m src_m = 0 at every k regardless.
+      ! Ssum accumulates src over ALL modes (no polar-bin drop of the k_perp>k_max,1D
+      ! Cartesian corners), giving the k-integrated source; unlike the binned
+      ! gam_bin it preserves the exact global sum, so sum_m gam_kint(m) = 0 is the
+      ! binning-immune telescoping invariant (= -dW/dt with mu=nu=0). The {Psi,S_m}
+      ! bracket telescopes only after the k-sum (perp transfer is non-zero per k).
+      Ssum = 0.d0
+      !$acc parallel loop collapse(3) gang vector default(present) &
+      !$acc& private(k2, src, idx) reduction(+:Ssum)
+      do i = 1, nkx
+        do j = 1, nky_local
+          do k = 1, nkz
+            src = v_th*wt*dble( conjg(g(k,j,i,mm)) &
+                                * (zi*kz(k)*sk(k,j,i) + brk(k,j,i)/ntot) )
+            if (k /= 1) src = 2.0d0*src
+            Ssum = Ssum + src
+            k2 = kx(i)**2 + ky(j)**2
+            do idx = 1, nkpolar - 1
+              if (k2 >= kpbin(idx)**2 .and. k2 < kpbin(idx+1)**2) then
+                !$acc atomic update
+                gam_bin(idx, mg, k) = gam_bin(idx, mg, k) + src
+                exit  ! found the bin
+              endif
+            enddo
+          end do
+        end do
+      end do
+      !$acc end parallel loop
+      gam_kint(mg) = Ssum
+    end do
+
+    ! Assemble k_perp (comm_fft) and m (comm_m) onto proc0 with one reduction; g is
+    ! redundant across comm_s, so comm_fm covers the whole field exactly once. Here
+    ! gam_bin holds the PER-RUNG source src_m at each global slot mg.
+    !$acc update host(gam_bin)
+    call sum_reduce(gam_bin, 0, comm=comm_fm)
+    call sum_reduce(gam_kint, 0, comm=comm_fm)  ! assemble k_perp (comm_fft) + m (comm_m)
+
+    ! Cumulative sum over m on proc0 (the only rank with the full spectrum) turns
+    ! the per-rung source into the flux Gamma_m = sum_{m'<=m} src_{m'}. The same
+    ! prefix sum on the k-integrated source gives Gamma(m); its top slot m=nm-1 is
+    ! the global telescoping residual (~0) and equals -dW/dt when mu=nu=0.
+    if (proc0) then
+      do k = 1, nkz
+        do idx = 1, nkpolar
+          do mg = 2, nm
+            gam_bin(idx, mg, k) = gam_bin(idx, mg, k) + gam_bin(idx, mg-1, k)
+          end do
+        end do
+      end do
+      do mg = 2, nm
+        gam_kint(mg) = gam_kint(mg) + gam_kint(mg-1)
+      end do
+    endif
+
+    !$acc exit data delete(sk, gx, gy, brk, pdx, pdy, sdx, sdy, brr)
+    deallocate(sk, gx, gy, brk, pdx, pdy, sdx, sdy, brr)
+  end subroutine get_hermite_flux_2d
 
 
 !-----------------------------------------------!

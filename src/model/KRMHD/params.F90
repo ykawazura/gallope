@@ -13,6 +13,7 @@ module params
 
   public  init_params
   public  nonlinear
+  public  write_hermite_flux
   public  nupe_x , nupe_x_exp , nupe_z , nupe_z_exp
   public  etape_x, etape_x_exp, etape_z, etape_z_exp
   public  shear, q
@@ -23,6 +24,7 @@ module params
   private read_parameters
 
   logical :: nonlinear
+  logical :: write_hermite_flux   ! gate the (costly) Hermite flux Gamma_m diagnostic (eq 9)
   real(8) :: nupe_x , nupe_z
   real(8) :: etape_x, etape_z
   integer :: nupe_x_exp , nupe_z_exp
@@ -72,7 +74,7 @@ contains
     integer  :: unit, ierr
     real(8)  :: kappa
 
-    namelist /operation_parameters/ nonlinear
+    namelist /operation_parameters/ nonlinear, write_hermite_flux
     namelist /physical_parameters/ nupe_x , nupe_x_exp , nupe_z , nupe_z_exp , &
                                    etape_x, etape_x_exp, etape_z, etape_z_exp, &
                                    v_th, mu_hyper_perp, nexp_perp, nu_hyper_m, nexp_m, &
@@ -82,8 +84,9 @@ contains
     !v    used only when the corresponding value   v!
     !v    does not exist in the input file         v!
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
-    nonlinear = .false.
-    !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^!
+    nonlinear          = .false.
+    write_hermite_flux = .false.
+    !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^!
 
     call get_unused_unit (unit)
     open(unit=unit,file=filename,status='old')

@@ -58,9 +58,17 @@ module io
   ! polar spectrum
   integer :: upe2_bin_id , bpe2_bin_id
   integer :: zppe2_bin_id, zmpe2_bin_id
+  ! Hermite (g) spectrum + free energy (Meyrand 2019)
+  integer :: mm_id, W_free_id, W_m_id, g2_bin_id
+  ! Hermite free-energy flux Gamma_m (Meyrand 2019 eq 9; gated by write_hermite_flux)
+  integer :: Gamma_m_id
+  ! k-integrated Hermite flux Gamma(m) (telescoping invariant; gated likewise)
+  integer :: Gamma_m_kint_id
 
   integer (kind_nf) :: xx_dim, yy_dim, zz_dim, kx_dim, ky_dim, kz_dim, kpbin_dim, tt_dim
+  integer (kind_nf) :: mm_dim
   integer, dimension (3) :: bin_dim
+  integer, dimension (4) :: bin4_dim
 
   integer :: nout
 
@@ -180,15 +188,17 @@ contains
 !! @brief   Initialization of NETCDF
 !-----------------------------------------------!
   subroutine init_io_netcdf(nkpolar, kpbin)
-    use grid, only: nlx, nly, nlz 
+    use grid, only: nlx, nly, nlz
     use grid, only: xx_global, yy, zz, kx, ky_global, kz
+    use grid, only: nm
     use mp, only: proc0
-    use params, only: runname, &
+    use params, only: runname, write_hermite_flux, &
                       nupe_x , nupe_x_exp , nupe_z , nupe_z_exp, &
                       etape_x, etape_x_exp, etape_z, etape_z_exp
     implicit none
     integer, intent(in) :: nkpolar
     real(8), intent(in) :: kpbin(1:nkpolar)
+    integer :: im
 
     if(proc0) then
       !--------------------------------------------------!
@@ -209,6 +219,7 @@ contains
       status = nf90_def_dim (ncid, 'ky', size(ky_global), ky_dim)
       status = nf90_def_dim (ncid, 'kz', size(kz), kz_dim)
       status = nf90_def_dim (ncid, 'kpbin', size(kpbin), kpbin_dim)
+      status = nf90_def_dim (ncid, 'mm', nm, mm_dim)
       status = nf90_def_dim (ncid, 'tt', NF90_UNLIMITED, tt_dim)
 
       status = nf90_def_var (ncid, 'nupe_x', NF90_DOUBLE, nupe_x_id)
@@ -227,6 +238,7 @@ contains
       status = nf90_def_var (ncid, 'ky', NF90_DOUBLE, ky_dim, ky_id)
       status = nf90_def_var (ncid, 'kz', NF90_DOUBLE, kz_dim, kz_id)
       status = nf90_def_var (ncid, 'kpbin', NF90_DOUBLE, kpbin_dim, kpbin_id)
+      status = nf90_def_var (ncid, 'mm', NF90_DOUBLE, mm_dim, mm_id)
       status = nf90_def_var (ncid, 'tt', NF90_DOUBLE, tt_dim, tt_id)
       ! total energy
       status = nf90_def_var (ncid, 'upe2_sum' , NF90_DOUBLE, tt_dim, upe2_sum_id )
@@ -248,6 +260,21 @@ contains
       status = nf90_def_var (ncid, 'bpe2_bin' , NF90_DOUBLE, bin_dim, bpe2_bin_id )
       status = nf90_def_var (ncid, 'zppe2_bin', NF90_DOUBLE, bin_dim, zppe2_bin_id)
       status = nf90_def_var (ncid, 'zmpe2_bin', NF90_DOUBLE, bin_dim, zmpe2_bin_id)
+      ! Hermite (g) spectrum + free energy (Meyrand 2019 eq 6)
+      bin4_dim (1) = kpbin_dim
+      bin4_dim (2) = mm_dim
+      bin4_dim (3) = kz_dim
+      bin4_dim (4) = tt_dim
+      status = nf90_def_var (ncid, 'W_free', NF90_DOUBLE, tt_dim, W_free_id)
+      status = nf90_def_var (ncid, 'W_m'   , NF90_DOUBLE, (/mm_dim, tt_dim/), W_m_id)
+      status = nf90_def_var (ncid, 'g2_bin', NF90_DOUBLE, bin4_dim, g2_bin_id)
+      ! Hermite free-energy flux Gamma_m(kpbin,mm,kz,tt) (Meyrand 2019 eq 9)
+      if (write_hermite_flux) then
+        status = nf90_def_var (ncid, 'Gamma_m', NF90_DOUBLE, bin4_dim, Gamma_m_id)
+        ! k-integrated flux Gamma(mm,tt): top slot = telescoping residual (~0)
+        status = nf90_def_var (ncid, 'Gamma_m_kint', NF90_DOUBLE, &
+                               (/mm_dim, tt_dim/), Gamma_m_kint_id)
+      endif
 
       status = nf90_enddef (ncid)  ! out of definition mode
 
@@ -267,6 +294,8 @@ contains
       status = nf90_put_var (ncid, ky_id, ky_global)
       status = nf90_put_var (ncid, kz_id, kz)
       status = nf90_put_var (ncid, kpbin_id, kpbin)
+      ! Hermite index coordinate: physical m = 0, 1, ..., nm-1
+      status = nf90_put_var (ncid, mm_id, (/(dble(im), im=0,nm-1)/))
 
       nout = 1
     endif
@@ -287,11 +316,14 @@ contains
                       !
                       nkpolar, &
                       upe2_bin , bpe2_bin , &
-                      zppe2_bin, zmpe2_bin  &
+                      zppe2_bin, zmpe2_bin, &
+                      !
+                      nm, g2bin, Wm, W_free, Gamma_m, Gamma_m_kint &
                     )
     use time, only: tt
     use grid, only: nlx, nly, nlz, nkz
     use mp, only: proc0
+    use params, only: write_hermite_flux
     use time_stamp, only: put_time_stamp, timer_io_total
     implicit none
     real(8), intent(in) :: upe2_sum , bpe2_sum
@@ -304,7 +336,15 @@ contains
     real(8), intent(in) :: upe2_bin (1:nkpolar, nkz), bpe2_bin (1:nkpolar, nkz)
     real(8), intent(in) :: zppe2_bin(1:nkpolar, nkz), zmpe2_bin(1:nkpolar, nkz)
 
+    integer, intent(in) :: nm
+    real(8), intent(in) :: g2bin(1:nkpolar, nm, nkz)
+    real(8), intent(in) :: Wm(nm)
+    real(8), intent(in) :: W_free
+    real(8), intent(in) :: Gamma_m(1:nkpolar, nm, nkz)
+    real(8), intent(in) :: Gamma_m_kint(nm)
+
     integer, dimension (3) :: start3, count3
+    integer, dimension (4) :: start4, count4
 
     if (proc0) call put_time_stamp(timer_io_total)
 
@@ -335,6 +375,18 @@ contains
       status = nf90_put_var (ncid, bpe2_bin_id , bpe2_bin , start=start3, count=count3)
       status = nf90_put_var (ncid, zppe2_bin_id, zppe2_bin, start=start3, count=count3)
       status = nf90_put_var (ncid, zmpe2_bin_id, zmpe2_bin, start=start3, count=count3)
+      ! Hermite (g) spectrum + free energy (Meyrand 2019 eq 6)
+      status = nf90_put_var (ncid, W_free_id, W_free, start=(/nout/))
+      status = nf90_put_var (ncid, W_m_id, Wm, start=(/1, nout/), count=(/nm, 1/))
+      start4(1) = 1;       start4(2) = 1;  start4(3) = 1;   start4(4) = nout
+      count4(1) = nkpolar; count4(2) = nm; count4(3) = nkz; count4(4) = 1
+      status = nf90_put_var (ncid, g2_bin_id, g2bin, start=start4, count=count4)
+      ! Hermite free-energy flux Gamma_m (eq 9), same rank-4 layout as g2_bin
+      if (write_hermite_flux) then
+        status = nf90_put_var (ncid, Gamma_m_id, Gamma_m, start=start4, count=count4)
+        status = nf90_put_var (ncid, Gamma_m_kint_id, Gamma_m_kint, &
+                               start=(/1, nout/), count=(/nm, 1/))
+      endif
 
       status = nf90_sync (ncid)
 

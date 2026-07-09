@@ -1,0 +1,98 @@
+!--------------------------------------------------!
+!  1-C-ii Stage 0 (FULL telescoping, P_m=1 ref).    !
+!  nonlinear=T => grad_par S_m additionally carries  !
+!  the {Psi, S_m} bracket, reconstructed by the      !
+!  diagnostic with the code's own grad_par (btran    !
+!  gradients -> real bracket -> ftran /ntot). This   !
+!  tests the bracket sign AND the alias-free         !
+!  telescoping of the bracket part:                  !
+!    sum_m Re[conjg(g_m) {Psi,S_m}] = 0              !
+!  which holds only once g and Psi are 2/3-truncated !
+!  (the RK dealias filter). The RANDOM IC is         !
+!  broadband up to Nyquist, so the t=0 diagnostic    !
+!  record is NOT yet dealiased => its bracket        !
+!  telescoping is violated; check_1Cii.py therefore  !
+!  asserts telescoping on the EVOLVED records (t>0,   !
+!  after >=1 filtered step). This run is also the    !
+!  P_m=1 reference for the Gamma_m P_m-invariance     !
+!  test against s0_nl_pm4 (SAME P_fft=4).            !
+!  nm=8, 16^3, P_m=1 (nproc=4 => P_fft=4).           !
+!--------------------------------------------------!
+&parallelization
+  P_m = 1
+  P_s = 1
+/
+
+&box_parameters
+  lx = 1.0
+  ly = 1.0
+  lz = 1.0
+  nlx = 16
+  nly = 16
+  nlz = 16
+  nm  = 8
+/
+
+&time_parameters
+  dt    = 5.0d-3
+  nstep = 40
+  cfl   = 2.0d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+&operation_parameters
+  nonlinear          = T
+  write_hermite_flux = T
+/
+
+&physical_parameters
+  nupe_x      = 4d+3
+  nupe_x_exp  = 4
+  etape_x     = 4d+3
+  etape_x_exp = 4
+  nupe_z      = 4d+1
+  nupe_z_exp  = 4
+  etape_z     = 4d+1
+  etape_z_exp = 4
+
+  v_th          = 1.d0
+  mu_hyper_perp = 0.d0
+  nexp_perp     = 4
+  nu_hyper_m    = 0.d0
+  nexp_m        = 6
+  beta_i        = 1.d0
+  tau           = 1.d0
+  Zcharge       = 1.d0
+  alpha_root    = 1
+/
+
+&initial_condition
+  init_type = 'random'
+  init_seed = 42
+/
+
+&force
+  driven = F
+/
+
+&terminate
+  max_wall_time   = 0.5
+  terminate_file_name = 'terminate'
+/
+
+&diagnostics_parameters
+  write_intvl         = 0.02d0
+  write_intvl_2D      = 0.0d0
+  write_intvl_3D      = 0.0d0
+  SF2_nsample = 100000
+/
+
+&restart_parameters
+  save_restart_intvl = 100.0d0
+  restart_dir = './restart/'
+/
