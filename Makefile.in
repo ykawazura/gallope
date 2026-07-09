@@ -5,9 +5,10 @@
 # Set architecture name; 'arch/$(arch).in' will be included.
 arch = miyabi
 
-# MODEL : 
+# MODEL :
 # 	MHD_INCOMP     ! incompressible MHD
 # 	RMHD           ! reduced MHD
+# 	KRMHD          ! kinetic RMHD (4D: RMHD + passive Hermite moments g_m)
 MODEL = RMHD
 
 # debug

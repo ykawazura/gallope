@@ -1,0 +1,83 @@
+!--------------------------------------------------!
+!  1-A test (i-a): nm=1 passive advection, baseline !
+!  compressibility params (v_th=1, beta_i=tau=Z=1). !
+!  init_type='random' gives deterministic phi/psi   !
+!  AND g (seeded by init_seed, g by GLOBAL m), so    !
+!  driven=F still yields nontrivial passive g        !
+!  advection. Its final g XOR checksum must match    !
+!  nm1_b (which only differs in v_th & beta/tau/Z),  !
+!  proving those knobs are inert in 1-A (S_m=0).     !
+!  P_m=P_s=1 (nm=1 => P_m must be 1).                !
+!--------------------------------------------------!
+&box_parameters
+  lx = 1.0
+  ly = 1.0
+  lz = 1.0
+  nlx = 64
+  nly = 64
+  nlz = 64
+  nm  = 1
+/
+
+&time_parameters
+  dt    = 5.0d-3
+  nstep = 20
+  cfl   = 2.0d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+&operation_parameters
+  nonlinear = T
+/
+
+&physical_parameters
+  nupe_x      = 4d+3
+  nupe_x_exp  = 4
+  etape_x     = 4d+3
+  etape_x_exp = 4
+  nupe_z      = 4d+1
+  nupe_z_exp  = 4
+  etape_z     = 4d+1
+  etape_z_exp = 4
+
+  v_th          = 1.d0
+  mu_hyper_perp = 0.d0
+  nexp_perp     = 4
+  nu_hyper_m    = 0.d0
+  nexp_m        = 6
+  beta_i        = 1.d0
+  tau           = 1.d0
+  Zcharge       = 1.d0
+  alpha_root    = 1
+/
+
+&initial_condition
+  init_type = 'random'
+  init_seed = 42
+/
+
+&force
+  driven = F
+/
+
+&terminate
+  max_wall_time   = 0.5
+  terminate_file_name = 'terminate'
+/
+
+&diagnostics_parameters
+  write_intvl         = 0.05d0
+  write_intvl_2D      = 0.0d0
+  write_intvl_3D      = 0.0d0
+  SF2_nsample = 100000
+/
+
+&restart_parameters
+  save_restart_intvl = 100.0d0
+  restart_dir = './restart/'
+/

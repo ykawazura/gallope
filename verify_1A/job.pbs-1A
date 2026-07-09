@@ -1,0 +1,93 @@
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=16:mpiprocs=1
+#PBS -l walltime=01:00:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N krmhd_1A
+
+#=====================================================================
+#  Milestone 1-A verification driver.
+#  Runs all five cases inside one 16-node allocation and prints a
+#  PASS/FAIL summary of:
+#    (i)   nm=1 v_th/beta/tau/Z invariance : nm1_a vs nm1_b checksum
+#    (ii)  P_m-invariance (P_fft=4 fixed)  : pm1 vs pm4 checksum + g.dat
+#    (iii) restart round-trip             : rt checksum == pm1, g.dat cmp
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+
+ROOT=${PBS_O_WORKDIR}
+BIN=${ROOT}/../gallope          # KRMHD binary built in the repo root
+RUN=${ROOT}/runs
+rm -rf "${RUN}"
+mkdir -p "${RUN}"
+
+# ---- helper: run one case in its own subdir ------------------------
+run_case () {   # $1=name  $2=np  $3=infile
+  name=$1; np=$2; inf=$3
+  d="${RUN}/${name}"
+  mkdir -p "${d}/restart" "${d}/out2d" "${d}/out3d"
+  cp "${ROOT}/${inf}" "${d}/gallope.in"
+  ( cd "${d}" && mpirun -np "${np}" "${BIN}" <gallope.in >out.std 2>&1 )
+  echo "[driver] ${name} (np=${np}) done, rc=$?"
+}
+
+chk () {  # extract the LAST g XOR checksum printed by a run
+  grep -h "check_g_consistency] global g XOR checksum" "${RUN}/$1/out.std" \
+    | tail -1 | sed 's/.*= //'
+}
+
+echo "================ 1-A verification runs ================"
+run_case nm1_a 4  nm1_a.in
+run_case nm1_b 4  nm1_b.in
+run_case pm1   4  pm1.in
+run_case pm4   16 pm4.in
+
+# ---- round-trip: seed rt with a copy of pm1's final restart --------
+mkdir -p "${RUN}/rt/out2d" "${RUN}/rt/out3d"
+cp -r "${RUN}/pm1/restart" "${RUN}/rt/restart"
+cp "${RUN}/rt/restart/g.dat" "${RUN}/rt/g.dat.orig"
+cp "${ROOT}/rt.in" "${RUN}/rt/gallope.in"
+( cd "${RUN}/rt" && mpirun -np 4 "${BIN}" <gallope.in >out.std 2>&1 )
+echo "[driver] rt (np=4) done, rc=$?"
+
+echo
+echo "================ 1-A verification summary ============="
+C_NM1A=$(chk nm1_a); C_NM1B=$(chk nm1_b)
+C_PM1=$(chk pm1);    C_PM4=$(chk pm4);   C_RT=$(chk rt)
+
+echo "nm1_a checksum : ${C_NM1A}"
+echo "nm1_b checksum : ${C_NM1B}"
+echo "pm1   checksum : ${C_PM1}"
+echo "pm4   checksum : ${C_PM4}"
+echo "rt    checksum : ${C_RT}"
+echo
+
+pass=0; fail=0
+verdict () { # $1=label $2=cond(0=pass)
+  if [ "$2" -eq 0 ]; then echo "PASS  $1"; pass=$((pass+1));
+  else echo "FAIL  $1"; fail=$((fail+1)); fi
+}
+
+# (i) nm=1 v_th/beta/tau/Z invariance
+[ -n "${C_NM1A}" ] && [ "${C_NM1A}" = "${C_NM1B}" ]; verdict "(i)   nm=1 v_th/beta/tau/Z invariance (nm1_a==nm1_b)" $?
+
+# (ii) P_m-invariance: checksum + g.dat byte-identity
+[ -n "${C_PM1}" ] && [ "${C_PM1}" = "${C_PM4}" ]; verdict "(ii)  P_m-invariance checksum (pm1==pm4)" $?
+cmp -s "${RUN}/pm1/restart/g.dat" "${RUN}/pm4/restart/g.dat"; verdict "(ii)  P_m-invariance g.dat byte-identical" $?
+
+# (iii) restart round-trip: checksum matches pm1, g.dat rewritten identically
+[ -n "${C_RT}" ] && [ "${C_RT}" = "${C_PM1}" ]; verdict "(iii) restart read round-trip (rt==pm1)" $?
+cmp -s "${RUN}/rt/g.dat.orig" "${RUN}/rt/restart/g.dat"; verdict "(iii) restart write round-trip (g.dat cmp)" $?
+
+echo
+echo "TOTAL: ${pass} passed, ${fail} failed"
+echo "======================================================="

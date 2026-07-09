@@ -12,8 +12,9 @@ module mp
 
   public :: init_mp, finish_mp
   public :: init_comm_layout
+  public :: halo_exchange_m
   public :: proc_id, nproc, proc0
-  public :: comm_fft, comm_m, comm_s
+  public :: comm_fft, comm_m, comm_s, comm_fm
   public :: nproc_fft, iproc_fft, proc0_fft
   public :: nproc_m,   iproc_m,   proc0_m
   public :: nproc_s,   iproc_s,   proc0_s
@@ -31,6 +32,9 @@ module mp
   ! With P_m=P_s=1, comm_fft == MPI_COMM_WORLD, i.e. the pre-refactor run.
   integer :: comm_cart
   integer :: comm_fft, comm_m, comm_s
+  ! comm_fm = the (P_m x P_fft) plane at fixed iproc_s; used for collective
+  ! rank-4 g I/O (every rank owning a slice of the same g field shares one view).
+  integer :: comm_fm
   integer :: nproc_fft, iproc_fft
   integer :: nproc_m,   iproc_m
   integer :: nproc_s,   iproc_s
@@ -210,6 +214,8 @@ contains
     call MPI_CART_SUB(comm_cart, remain, comm_m,   ierr)
     remain = (/ .true. , .false., .false. /)   ! keep the P_s axis
     call MPI_CART_SUB(comm_cart, remain, comm_s,   ierr)
+    remain = (/ .false., .true. , .true.  /)   ! keep the P_m and P_fft axes
+    call MPI_CART_SUB(comm_cart, remain, comm_fm,  ierr)
 
     call MPI_COMM_SIZE(comm_fft, nproc_fft, ierr)
     call MPI_COMM_RANK(comm_fft, iproc_fft, ierr)
@@ -240,9 +246,63 @@ contains
     call MPI_COMM_FREE (comm_fft,  ierr)
     call MPI_COMM_FREE (comm_m,    ierr)
     call MPI_COMM_FREE (comm_s,    ierr)
+    call MPI_COMM_FREE (comm_fm,   ierr)
     call MPI_COMM_FREE (comm_cart, ierr)
     call MPI_FINALIZE (ierr)
   end subroutine finish_mp
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Width-1 Hermite-moment halo exchange over comm_m.
+!!          g is stored as (nkz, nky_local, nkx, 0:nm_local+1) with ghost
+!!          moments at local index 0 (= g_{m_offset-1}) and nm_local+1
+!!          (= g_{m_offset+nm_local}). Each plane g(:,:,:,k) is contiguous,
+!!          so it is passed straight to a GPU-aware MPI_SENDRECV via
+!!          host_data use_device (no host staging). Global Hermite boundaries
+!!          (g_{-1}=0, g_{Nm+1}=0) are enforced by zeroing the outermost ghost.
+!-----------------------------------------------!
+  subroutine halo_exchange_m(g)
+    implicit none
+    complex(8), dimension(:,:,:,0:), intent(inout) :: g
+    integer :: n_plane, nm_local
+    integer :: lower, upper
+    integer :: status(MPI_STATUS_SIZE), ierr
+
+    if (nproc_m == 1) return
+
+    nm_local = ubound(g, 4) - 1                 ! ghosts live at 0 and nm_local+1
+    n_plane  = size(g,1) * size(g,2) * size(g,3)
+
+    ! nearest neighbours along comm_m; the global-m ends have none
+    lower = iproc_m - 1
+    upper = iproc_m + 1
+    if (iproc_m == 0)           lower = MPI_PROC_NULL
+    if (iproc_m == nproc_m - 1) upper = MPI_PROC_NULL
+
+    !$acc host_data use_device(g)
+    ! send lowest local moment down, receive upper ghost from above
+    call MPI_SENDRECV(g(1,1,1,1),          n_plane, MPI_DOUBLE_COMPLEX, lower, 0, &
+                      g(1,1,1,nm_local+1),  n_plane, MPI_DOUBLE_COMPLEX, upper, 0, &
+                      comm_m, status, ierr)
+    ! send highest local moment up, receive lower ghost from below
+    call MPI_SENDRECV(g(1,1,1,nm_local),   n_plane, MPI_DOUBLE_COMPLEX, upper, 1, &
+                      g(1,1,1,0),           n_plane, MPI_DOUBLE_COMPLEX, lower, 1, &
+                      comm_m, status, ierr)
+    !$acc end host_data
+
+    ! MPI_PROC_NULL leaves the outer ghosts untouched: pin them to zero so that
+    ! S_m sees g_{-1}=0 (m_offset=0) and g_{Nm+1}=0 (top rank).
+    if (iproc_m == 0) then
+      !$acc kernels present(g)
+      g(:,:,:,0) = (0.d0, 0.d0)
+      !$acc end kernels
+    end if
+    if (iproc_m == nproc_m - 1) then
+      !$acc kernels present(g)
+      g(:,:,:,nm_local+1) = (0.d0, 0.d0)
+      !$acc end kernels
+    end if
+  end subroutine halo_exchange_m
 
 ! ************** broadcasts *****************************
 
