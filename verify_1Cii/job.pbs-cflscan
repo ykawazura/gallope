@@ -1,0 +1,71 @@
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=16:mpiprocs=1
+#PBS -l walltime=00:50:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N krmhd_cflscan
+
+#=====================================================================
+#  1-C-ii CFL calibration: run the SAME driven-turbulence config
+#  (64^2 x 32, nm=16, np=16 => P_fft=4, P_m=4) at cfl=1.0 and cfl=0.5,
+#  each LONG (max_wall_time=0.30h ~ 18 min) so both march past the
+#  t~5.5 danger zone where the earlier cfl=2.0 run went NaN. Both code
+#  fixes are in the binary (nonlinear streaming term in dt_cfl; the
+#  dt-reset loops down to <= dt_cfl in one call). Goal: pick the
+#  largest cfl that stays bounded through a developed bath (with
+#  margin) as the production cfl, and confirm the echo still shows.
+#  Each case is post-processed with check_stage2.py.
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+
+ROOT=${PBS_O_WORKDIR}
+BIN=${ROOT}/../gallope
+
+run_case () {
+  tag=$1        # short label
+  infile=$2     # input file basename in ROOT
+  RUN=${ROOT}/runs_${tag}
+  rm -rf "${RUN}"
+  mkdir -p "${RUN}/restart" "${RUN}/out2d" "${RUN}/out3d"
+  cp "${ROOT}/${infile}" "${RUN}/gallope.in"
+
+  echo "================ CFL scan: ${tag} (${infile}) ================"
+  t0=$(date +%s)
+  ( cd "${RUN}" && mpirun -np 16 "${BIN}" <gallope.in >out.std 2>&1 )
+  rc=$?
+  t1=$(date +%s)
+  echo "[driver] ${tag} done, rc=${rc}, wall=$((t1 - t0))s"
+
+  echo
+  echo "----- tail of out.std (${tag}) -----"
+  tail -20 "${RUN}/out.std"
+
+  echo
+  echo "----- tail of cfl.dat (${tag}): tt dt_cfl max_vel_x max_vel_y -----"
+  tail -5 "${RUN}/cfl.dat" 2>/dev/null || echo "(no cfl.dat)"
+
+  echo
+  echo "================ ${tag} analysis ================"
+  NC=$(ls "${RUN}"/*.out.nc 2>/dev/null | head -1)
+  if [ -z "${NC}" ]; then
+    echo "ERROR: no NetCDF output found in ${RUN}"
+  else
+    python3 "${ROOT}/check_stage2.py" "${NC}" 2>&1
+  fi
+  echo "======================================================="
+  echo
+}
+
+run_case cfl1  stage2_cfl1.in
+run_case cfl05 stage2_cfl05.in
+
+echo "ALL_CFLSCAN_DONE"

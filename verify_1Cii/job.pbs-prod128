@@ -1,0 +1,60 @@
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=32:mpiprocs=1
+#PBS -l walltime=03:00:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N krmhd_prod128
+
+#=====================================================================
+#  1-C-ii PRODUCTION echo run: 128^2 x 64, nm=32, np=32 (=> P_fft=8,
+#  P_m=4, P_s=1) at the calibrated cfl=0.5. Driven Alfvenic turbulence
+#  with a passive kinetic g cascade; deliverable = time-averaged
+#  Hermite free-energy flux Gamma_m(k) (eq 9) ~ 0 across the inertial
+#  range (stochastic echo). Self-terminates at max_wall_time=2.5h
+#  (~t=30). Restart is checkpointed every 10 time units. A quick
+#  check_stage2.py summary is printed at the end; a proper
+#  steady-state-windowed echo analysis is done afterward on the NetCDF.
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+
+ROOT=${PBS_O_WORKDIR}
+BIN=${ROOT}/../gallope
+RUN=${ROOT}/runs_prod128
+rm -rf "${RUN}"
+mkdir -p "${RUN}/restart" "${RUN}/out2d" "${RUN}/out3d"
+cp "${ROOT}/prod128.in" "${RUN}/gallope.in"
+
+echo "================ PRODUCTION prod128 (128^2 x 64, nm=32, np=32, cfl=0.5) ================"
+t0=$(date +%s)
+( cd "${RUN}" && mpirun -np 32 "${BIN}" <gallope.in >out.std 2>&1 )
+rc=$?
+t1=$(date +%s)
+echo "[driver] prod128 done, rc=${rc}, wall=$((t1 - t0))s"
+
+echo
+echo "----- tail of out.std -----"
+tail -25 "${RUN}/out.std"
+
+echo
+echo "----- tail of cfl.dat: tt dt_cfl max_vel_x max_vel_y -----"
+tail -5 "${RUN}/cfl.dat" 2>/dev/null || echo "(no cfl.dat)"
+
+echo
+echo "================ prod128 analysis (whole-run quick look) ================"
+NC=$(ls "${RUN}"/*.out.nc 2>/dev/null | head -1)
+if [ -z "${NC}" ]; then
+  echo "ERROR: no NetCDF output found in ${RUN}"
+else
+  python3 "${ROOT}/check_stage2.py" "${NC}" 2>&1
+fi
+echo "======================================================="
+echo "PROD128_DONE"

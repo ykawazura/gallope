@@ -1,0 +1,56 @@
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=16:mpiprocs=1
+#PBS -l walltime=00:20:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N krmhd_s2smoke
+
+#=====================================================================
+#  1-C-ii Stage 2 SMOKE: one driven-turbulence KRMHD run (64^2 x 32,
+#  nm=16, np=16 => P_fft=4, P_m=4) with the gated Gamma_m flux
+#  diagnostic. Alfvenic fields are driven (zppe,zmpe); g is seeded
+#  random and cascades in the bath. The run self-terminates at
+#  max_wall_time (~9 min); this script then post-processes with
+#  check_stage2.py to report:
+#    - pipeline: reached time t, W_free growth (turbulence developed)
+#    - TELE_KINT: k-integrated telescoping ~0 in strong turbulence
+#    - ECHO_RATIO: net inertial-range flux / gross phase-mixing (echo)
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+
+ROOT=${PBS_O_WORKDIR}
+BIN=${ROOT}/../gallope
+RUN=${ROOT}/runs_stage2
+rm -rf "${RUN}"
+mkdir -p "${RUN}/restart" "${RUN}/out2d" "${RUN}/out3d"
+cp "${ROOT}/stage2_smoke.in" "${RUN}/gallope.in"
+
+echo "================ Stage 2 smoke run ================"
+t0=$(date +%s)
+( cd "${RUN}" && mpirun -np 16 "${BIN}" <gallope.in >out.std 2>&1 )
+rc=$?
+t1=$(date +%s)
+echo "[driver] stage2_smoke done, rc=${rc}, wall=$((t1 - t0))s"
+
+echo
+echo "----- tail of out.std -----"
+tail -20 "${RUN}/out.std"
+
+echo
+echo "================ Stage 2 smoke analysis ================"
+NC=$(ls "${RUN}"/*.out.nc 2>/dev/null | head -1)
+if [ -z "${NC}" ]; then
+  echo "ERROR: no NetCDF output found in ${RUN}"
+  exit 1
+fi
+python3 "${ROOT}/check_stage2.py" "${NC}" 2>&1
+echo "======================================================="
