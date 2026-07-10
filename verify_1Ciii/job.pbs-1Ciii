@@ -1,0 +1,75 @@
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=16:mpiprocs=1
+#PBS -l walltime=01:30:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N krmhd_1Ciii
+
+#=====================================================================
+#  1-C-iii g-forcing validation (64^2 x 32, nm=32, np=16 => P_fft=4,
+#  P_m=4, P_s=1). Two runs on the SAME binary:
+#    (1) lin64  : nonlinear=F control. g1 forcing -> pure forward
+#                 Hermite cascade. Cheapest end-to-end wiring test.
+#                 Expect W_free plateau + ECHO_RATIO ~ 1 (forward).
+#    (2) echo64 : nonlinear=T driven turbulence. The fix for the
+#                 free-decay problem. Expect W_free driven steady
+#                 (RELRMS small, NOT monotonic decay) + ECHO_RATIO
+#                 << 1 (stochastic echo).
+#  lin64 runs first; if it crashes (no NetCDF) echo64 is skipped.
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+
+ROOT=${PBS_O_WORKDIR}
+BIN=${ROOT}/../gallope
+
+run_case () {
+  name=$1
+  RUN=${ROOT}/runs_${name}
+  rm -rf "${RUN}"
+  mkdir -p "${RUN}/restart" "${RUN}/out2d" "${RUN}/out3d"
+  cp "${ROOT}/${name}.in" "${RUN}/gallope.in"
+
+  echo "================ ${name} (64^2 x 32, nm=32, np=16) ================"
+  t0=$(date +%s)
+  ( cd "${RUN}" && mpirun -np 16 "${BIN}" <gallope.in >out.std 2>&1 )
+  rc=$?
+  t1=$(date +%s)
+  echo "[driver] ${name} done, rc=${rc}, wall=$((t1 - t0))s"
+
+  echo "----- tail of ${name} out.std -----"
+  tail -20 "${RUN}/out.std"
+  echo "----- tail of ${name} cfl.dat: tt dt_cfl max_vel_x max_vel_y -----"
+  tail -4 "${RUN}/cfl.dat" 2>/dev/null || echo "(no cfl.dat)"
+
+  NC=$(ls "${RUN}"/*.out.nc 2>/dev/null | head -1)
+  if [ -z "${NC}" ]; then
+    echo "ERROR: no NetCDF output for ${name}"
+    return 1
+  fi
+  echo "----- ${name} analysis (analyze.py, steady window auto) -----"
+  python3 "${ROOT}/analyze.py" "${NC}" 4.0 2>&1
+  echo "======================================================="
+  return 0
+}
+
+# (1) linear control first; gate echo64 on it producing output
+run_case lin64
+lin_rc=$?
+
+if [ ${lin_rc} -eq 0 ]; then
+  # (2) driven-echo run
+  run_case echo64
+else
+  echo "SKIP echo64: lin64 produced no NetCDF (wiring/crash) -- inspect runs_lin64/out.std"
+fi
+
+echo "ALL_1Ciii_DONE"

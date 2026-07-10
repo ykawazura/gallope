@@ -15,6 +15,10 @@ module force_common
   integer :: nk_stir
   logical :: elsasser, fix_power
   real(8) :: ene_inj, xhl_inj, res_inj
+  !> Compressive free-energy injection rate for the KRMHD g_{m=1} forcing
+  !> (see KRMHD/force.F90::normalize_force_g). Default 0 => no g forcing, so
+  !> RMHD/MHD_INCOMP that never read it are unaffected.
+  real(8) :: ene_inj_g
   real(8) :: kmin(3), kmax(3)
   integer :: nfields
   !> Base seed for the stochastic forcing RNG. stir_seed < 0 (default) draws a
@@ -39,8 +43,8 @@ module force_common
 
   integer :: force_unit
 
-  !$acc declare create(ene_inj, xhl_inj, res_inj)
-  !$acc declare create(ky_stir, kx_stir, kz_stir, a_force, b_force, ene_inj, xhl_inj, res_inj)
+  !$acc declare create(ene_inj, xhl_inj, res_inj, ene_inj_g)
+  !$acc declare create(ky_stir, kx_stir, kz_stir, a_force, b_force, ene_inj, xhl_inj, res_inj, ene_inj_g)
 contains
 
 
@@ -81,7 +85,7 @@ contains
     character(len=100), intent(in) :: filename
     integer  :: ierr
 
-    namelist /force/ driven, elsasser, fix_power, ene_inj, xhl_inj, res_inj, kmin, kmax, nfields, stir_seed
+    namelist /force/ driven, elsasser, fix_power, ene_inj, xhl_inj, res_inj, ene_inj_g, kmin, kmax, nfields, stir_seed
     namelist /forced_fields/ field_names, amplitudes, frequencies
 
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
@@ -94,6 +98,7 @@ contains
     ene_inj = 0.d0
     xhl_inj = 0.d0
     res_inj = 0.d0
+    ene_inj_g = 0.d0
     kmin = (/0.d0, 0.d0, 0.d0/)
     kmax = (/0.d0, 0.d0, 0.d0/)
     nfields = 0
@@ -106,7 +111,7 @@ contains
     read(unit,nml=force,iostat=ierr)
         if (ierr/=0) write(*,*) "Reading force_parameters failed"
     close(unit)
-    !$acc update device(ene_inj, xhl_inj, res_inj)
+    !$acc update device(ene_inj, xhl_inj, res_inj, ene_inj_g)
 
     allocate(field_names(nfields))
     allocate(amplitudes (nfields))

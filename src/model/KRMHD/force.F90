@@ -17,11 +17,14 @@ module force
   complex(8), dimension(:,:,:), allocatable :: fpsi, fpsi_old
   complex(8), dimension(:,:,:), allocatable :: fzppe
   complex(8), dimension(:,:,:), allocatable :: fzmpe
+  !> Forcing of the compressive m=1 Hermite moment g_1 (Meyrand et al. 2019).
+  complex(8), dimension(:,:,:), allocatable :: fg
 
   !$acc declare create(fphi, fphi_old)
   !$acc declare create(fpsi, fpsi_old)
   !$acc declare create(fzppe)
   !$acc declare create(fzmpe)
+  !$acc declare create(fg)
 
 contains
 
@@ -44,10 +47,14 @@ contains
       allocate(fzppe, source=src)
       allocate(fzmpe, source=src)
     endif
+    if(is_forced('g1')) then
+      allocate(fg, source=src)
+    endif
     !$acc update device(fphi, fphi_old)
     !$acc update device(fpsi, fpsi_old)
     !$acc update device(fzppe)
     !$acc update device(fzmpe)
+    !$acc update device(fg)
     deallocate(src)
 
   end subroutine alloc_force
@@ -225,6 +232,84 @@ contains
     if (proc0) call put_time_stamp(timer_force)
 
   end subroutine normalize_force_els
+
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Normalize the g_{m=1} forcing so that the rate of injection of the
+!!          compressive free energy W = 1/2 sum_m |g_m|^2 is exactly constant
+!!          (= ene_inj_g), following Meyrand et al. 2019. Mirrors
+!!          normalize_force_els but with NO k_perp^2 weight (W is 1/2|g_1|^2,
+!!          not the 1/2 k_perp^2 |phi|^2 kinetic energy of the Alfven fields).
+!!          Acts only on the comm_m rank that owns the global m=1 rung; the
+!!          comm_fft reduction stays within that rank's fft group (m=1 is unique
+!!          to it, so no comm_m/comm_s reduction that would double-count).
+!-----------------------------------------------!
+  subroutine normalize_force_g(fg)
+    use grid, only: nkx, nky_local, nkz
+    use grid, only: m_offset, nm_local
+    use fields, only: g
+    use mp, only: sum_allreduce
+    use mp, only: proc0, comm_fft
+    use time_stamp, only: put_time_stamp, timer_force
+    implicit none
+    complex(8), dimension(:,:,:), intent(inout) :: fg
+    real(8) :: g1_dot_fg_sum
+    real(8), dimension(:,:,:), allocatable :: g1_dot_fg
+    integer :: i, j, k, mm1
+
+    ! Global m=1 lives at local index mm1 = 2 - m_offset. Bail out on any rank
+    ! that does not own it (and when fix_power is off, matching the els path).
+    mm1 = 2 - m_offset
+    if (mm1 < 1 .or. mm1 > nm_local) return
+    if (.not. fix_power) return
+
+    if (proc0) call put_time_stamp(timer_force)
+
+    allocate(g1_dot_fg(nkz, nky_local, nkx), source=0.d0)
+
+    g1_dot_fg_sum = 0.d0
+
+    !$acc data present(g, fg) create(g1_dot_fg)
+    !$acc parallel loop collapse(3) reduction(+:g1_dot_fg_sum)
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          ! Injection rate d/dt(1/2 |g_1|^2) = Re[conjg(g_1)*fg]. No kprp2 weight.
+          g1_dot_fg(k, j, i) = 0.5d0*( &
+                                  g(k, j, i, mm1)*conjg(fg(k, j, i)) &
+                                + conjg(g(k, j, i, mm1))*fg(k, j, i) &
+                                )
+          ! Compensate the omitted negative-kz half-spectrum (see normalize_force_els).
+          if (k /= 1) g1_dot_fg(k, j, i) = 2.0d0*g1_dot_fg(k, j, i)
+
+          g1_dot_fg_sum = g1_dot_fg_sum + g1_dot_fg(k, j, i)
+        end do
+      end do
+    end do
+    !$acc end data
+
+    ! g_1 partial sums live on comm_fft (m=1 is unique to this comm_m rank).
+    call sum_allreduce(g1_dot_fg_sum, comm=comm_fft)
+
+    if(abs(g1_dot_fg_sum) > 1.0d-6) then
+      ! fg -> fg * ene_inj_g / |S| * sign(S) makes the injection exactly +ene_inj_g
+      ! (positive sign: g1_dot_fg carries no leading minus, unlike the els path).
+      !$acc parallel loop present(fg) copyin(g1_dot_fg_sum)
+      do i = 1, nkx
+         do j = 1, nky_local
+            do k = 1, nkz
+               fg(k, j, i) = ene_inj_g*fg(k, j, i)/abs(g1_dot_fg_sum)*sign(1.d0, g1_dot_fg_sum)
+            end do
+         end do
+      end do
+    endif
+
+    deallocate(g1_dot_fg)
+
+    if (proc0) call put_time_stamp(timer_force)
+
+  end subroutine normalize_force_g
 
 end module force
 

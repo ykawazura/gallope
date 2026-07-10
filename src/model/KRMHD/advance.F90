@@ -101,6 +101,7 @@ contains
     use dealias, only: filter
     use force, only: fphi, fpsi, fphi_old, fpsi_old, driven, elsasser, update_force, get_force, normalize_force, get_force, normalize_force_els
     use force, only: fzppe, fzmpe
+    use force, only: fg, normalize_force_g, is_forced
     use advance_common, only: gear1, gear2, gear3
     use advance_common, only: eSSPIFRK1, eSSPIFRK2, eSSPIFRK3
     use params, only: time_step_scheme
@@ -108,7 +109,8 @@ contains
     real(8) :: imp_terms_tintg0(nfields), imp_terms_tintg1(nfields)
     real(8) :: imp_terms_tintg2(nfields), imp_terms_tintg3(nfields)
     real(8) :: imp_g0, imp_g1, imp_g2, imp_g3
-    integer :: i, j, k, l, mm
+    integer :: i, j, k, l, mm, mm1
+    logical :: force_g, owns_m1
 
     if (proc0) call put_time_stamp(timer_advance)
 
@@ -118,6 +120,13 @@ contains
       counter = 1
       !$acc update device (counter)
     endif
+
+    ! g_{m=1} forcing (Meyrand 2019): only the comm_m rank owning global m=1
+    ! (local index mm1 = 2 - m_offset) injects; fg is added to that rung's
+    ! explicit terms in every RK stage.
+    force_g = driven .and. is_forced('g1')
+    mm1     = 2 - m_offset
+    owns_m1 = (mm1 >= 1 .and. mm1 <= nm_local)
 
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
     !v                For eSSPIFRK3                v!
@@ -145,6 +154,11 @@ contains
           call get_force('phi', fphi)
           call get_force('psi', fpsi)
           call normalize_force(fphi, fpsi)
+        endif
+        ! g_{m=1} forcing at n (same OU state as the Alfven force above)
+        if(force_g .and. owns_m1) then
+          call get_force('g1', fg)
+          call normalize_force_g(fg)
         endif
       endif
 
@@ -221,6 +235,22 @@ contains
       enddo
       !$acc end data
 
+      ! Inject the m=1 forcing (at n) into both the stage and the saved n-level
+      ! explicit terms, matching how the Alfven force enters exp_terms/exp_terms0.
+      if(force_g .and. owns_m1) then
+        !$acc data present(exp_terms_g, exp_terms0_g, fg)
+        !$acc parallel loop collapse(3)
+        do i = 1, nkx
+          do j = 1, nky_local
+            do k = 1, nkz
+              exp_terms_g (k,j,i,mm1) = exp_terms_g (k,j,i,mm1) + fg(k,j,i)
+              exp_terms0_g(k,j,i,mm1) = exp_terms0_g(k,j,i,mm1) + fg(k,j,i)
+            enddo
+          enddo
+        enddo
+        !$acc end data
+      endif
+
       !$acc data present(exp_terms_g, kprp2, filter, g, g_tmp)
       !$acc parallel loop collapse(4) private(imp_g0, imp_g1)
       do mm = 1, nm_local
@@ -292,6 +322,11 @@ contains
           call get_force('psi', fpsi)
           call normalize_force(fphi, fpsi)
         endif
+        ! g_{m=1} forcing at n + 2/3 (same OU state as the Alfven force above)
+        if(force_g .and. owns_m1) then
+          call get_force('g1', fg)
+          call normalize_force_g(fg)
+        endif
 
         ! go to n + 1
         call update_force(1.d0/3.d0*dt)
@@ -361,6 +396,20 @@ contains
         enddo
       enddo
       !$acc end data
+
+      ! Inject the m=1 forcing at n + 2/3 into the stage explicit terms
+      if(force_g .and. owns_m1) then
+        !$acc data present(exp_terms_g, fg)
+        !$acc parallel loop collapse(3)
+        do i = 1, nkx
+          do j = 1, nky_local
+            do k = 1, nkz
+              exp_terms_g(k,j,i,mm1) = exp_terms_g(k,j,i,mm1) + fg(k,j,i)
+            enddo
+          enddo
+        enddo
+        !$acc end data
+      endif
 
       !$acc data present(exp_terms_g, kprp2, filter, g, g_tmp)
       !$acc parallel loop collapse(4) private(imp_g0, imp_g2)
@@ -461,6 +510,21 @@ contains
         enddo
       enddo
       !$acc end data
+
+      ! Inject the m=1 forcing (reusing the stage-2 fg at n + 2/3) into the stage
+      ! explicit terms; the n-level contribution rides in exp_terms0_g from stage 1.
+      if(force_g .and. owns_m1) then
+        !$acc data present(exp_terms_g, fg)
+        !$acc parallel loop collapse(3)
+        do i = 1, nkx
+          do j = 1, nky_local
+            do k = 1, nkz
+              exp_terms_g(k,j,i,mm1) = exp_terms_g(k,j,i,mm1) + fg(k,j,i)
+            enddo
+          enddo
+        enddo
+        !$acc end data
+      endif
 
       !$acc data present(exp_terms_g, exp_terms0_g, kprp2, filter, g, g_tmp, g_new)
       !$acc parallel loop collapse(4) private(imp_g0, imp_g2, imp_g3)
