@@ -792,6 +792,7 @@ contains
     integer :: i, j, k, l
     real   (8) :: ux_rms, uy_rms, bx_rms, by_rms
     real   (8) :: max_vel_x, max_vel_y , dt_cfl, dt_digit
+    real   (8) :: max_bpar_x, max_bpar_y, str_rate, cfl_str
     !$acc declare create(ux_rms, uy_rms, bx_rms, by_rms)
 
     if (proc0) call put_time_stamp(timer_nonlinear_terms)
@@ -857,8 +858,11 @@ contains
     ! (get max_vel for dt reset)
     if(dt_reset) then
       max_vel_x = 0.d0; max_vel_y = 0.d0
+      ! Psi-only velocity for the nonlinear magnetic-streaming CFL below.
+      max_bpar_x = 0.d0; max_bpar_y = 0.d0
       !$acc data present(w_r)
-      !$acc parallel loop collapse(3) reduction(max:max_vel_x, max_vel_y)
+      !$acc parallel loop collapse(3) &
+      !$acc reduction(max:max_vel_x, max_vel_y, max_bpar_x, max_bpar_y)
       do i = 1, nlx_local
         do j = 1, nly
           do k = 1, nlz_padded
@@ -872,6 +876,10 @@ contains
                           abs(w_r(k,j,i,idphi_dx) + w_r(k,j,i,idpsi_dx)), &
                           abs(w_r(k,j,i,idphi_dx) - w_r(k,j,i,idpsi_dx))  &
                         )
+            ! magnetic field-line-bending velocity |grad psi| (Psi only): the
+            ! x-transport speed is |d psi/dy|, the y-transport speed |d psi/dx|.
+            max_bpar_x = max(max_bpar_x, abs(w_r(k,j,i,idpsi_dy)))
+            max_bpar_y = max(max_bpar_y, abs(w_r(k,j,i,idpsi_dx)))
           end do
         end do
       end do
@@ -882,14 +890,30 @@ contains
       ! every group computes the same dt, avoiding step-count divergence.
       call max_allreduce(max_vel_x)
       call max_allreduce(max_vel_y)
+      call max_allreduce(max_bpar_x)
+      call max_allreduce(max_bpar_y)
       dt_cfl = cfl*min(dlx/max_vel_x, dly/max_vel_y)
-      ! Kinetic streaming CFL: the symmetric-tridiagonal parallel free-streaming
-      ! operator on the Hermite ladder has spectral radius v_th*sqrt(2*nm)*kz_max
-      ! (largest Gauss-Hermite node ~ sqrt(2*nm)), so bound dt by the reciprocal.
-      ! kz_max/nm are machine-independent constants; folding into the same world
-      ! max-reduced dt keeps every comm in lockstep. Guard the v_th=0 limit.
-      if (v_th*kz_max > 0.d0) &
-        dt_cfl = min(dt_cfl, cfl/(v_th*sqrt(2.d0*dble(nm))*kz_max))
+      ! Kinetic parallel-streaming CFL. The streaming operator v_th*grad_par*L
+      ! has L = the symmetric-tridiagonal Hermite ladder (spectral radius
+      ! sqrt(2*nm), the largest Gauss-Hermite node) acting on
+      !   grad_par = d/dz + {psi,.} .
+      ! Its eigenvalues are purely imaginary, so bound dt by the SSP-RK3
+      ! imaginary-axis stability limit sqrt(3) (cfl may be tuned larger for the
+      ! mixed-spectrum perp advection above, but must not exceed sqrt(3) here).
+      ! BOTH parts of grad_par contribute, each scaled by v_th and amplified by
+      ! the sqrt(2*nm) ladder:
+      !   - linear  d/dz    -> v_th*kz_max                 (spectral, exact)
+      !   - nonlin  {psi,.} -> v_th*|grad psi|/dl          (magnetic field-line
+      !     bending; same advective form as the perp CFL, Psi-only velocity).
+      ! The nonlinear term was previously missing, so a strong Alfvenic bath
+      ! could drive an explosive streaming instability while the perp/kz CFL
+      ! stayed satisfied. kz_max/nm are machine-independent and |grad psi| is
+      ! world-reduced, so every comm computes the same dt (lockstep, P_m
+      ! bit-invariant). Guard the v_th=0 (passive-advection) limit.
+      cfl_str  = min(cfl, sqrt(3.d0))
+      str_rate = v_th*(kz_max + max(max_bpar_x/dlx, max_bpar_y/dly))
+      if (str_rate > 0.d0) &
+        dt_cfl = min(dt_cfl, cfl_str/(sqrt(2.d0*dble(nm))*str_rate))
 
       if(proc0) then
         write (unit=cfl_unit, fmt="(100es30.21)") tt, dt_cfl, max_vel_x, max_vel_y
@@ -905,18 +929,31 @@ contains
         dt_digit = (log10(dt_cfl)/abs(log10(dt_cfl)))*ceiling(abs(log10(dt_cfl)))
         ! dt = floor(dt_cfl*10.d0**(-dt_digit))*10.d0**dt_digit
 
-        if (reset_method == 'multiply') then
-          dt = 0.5d0*dt
-        elseif (reset_method == 'decrement') then
-          dt_digit = (log10(dt)/abs(log10(dt)))*ceiling(abs(log10(dt)))
-
-          ! when dt = 0.0**01***
-          if (dt*10.d0**(-dt_digit) - 1.0d0 < 1.0d0) then
-            dt = 0.9d0*10.d0**dt_digit
+        ! Bring dt all the way down to <= dt_cfl within this SINGLE reset. A
+        ! one-notch (or one-halving) reduction per step cannot track a sudden
+        ! multi-notch collapse of dt_cfl caused by a rare large-amplitude bath
+        ! fluctuation spiking the magnetic field-line-bending streaming rate
+        ! {psi,S_m}; the CFL-violating step would then blow up (super-exponential
+        ! g growth -> NaN) before the next reset catches it, even though dt_cfl
+        ! is computed correctly every step. Looping restores the proper explicit
+        ! CFL-limiter guarantee (dt <= dt_cfl on every step) while keeping dt on
+        ! the same clean 1-digit values as the original decrement. The else
+        ! branch (unknown reset_method) clamps directly so the loop terminates.
+        do while (dt > dt_cfl)
+          if (reset_method == 'multiply') then
+            dt = 0.5d0*dt
+          elseif (reset_method == 'decrement') then
+            dt_digit = (log10(dt)/abs(log10(dt)))*ceiling(abs(log10(dt)))
+            ! when dt = 0.0**01***
+            if (dt*10.d0**(-dt_digit) - 1.0d0 < 1.0d0) then
+              dt = 0.9d0*10.d0**dt_digit
+            else
+              dt = (dt*10.d0**(-dt_digit) - 1.0d0)*10.d0**dt_digit
+            endif
           else
-            dt = (dt*10.d0**(-dt_digit) - 1.0d0)*10.d0**dt_digit
+            dt = dt_cfl
           endif
-        endif
+        end do
 
         counter = 1
 
