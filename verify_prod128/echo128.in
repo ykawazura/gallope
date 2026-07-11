@@ -1,0 +1,126 @@
+!--------------------------------------------------!
+!  PRODUCTION driven-echo run (128^2 x 64, nm=128).   !
+!                                                     !
+!  The stochastic-echo target of Phase 1-C-ii Stage 2:!
+!  a well-developed perp inertial range AND a long    !
+!  Hermite ladder (nm=128), so the fluidization        !
+!  signature can resolve -- <Gamma_m(k_perp)> ~ 0      !
+!  across the inertial band and a W_m ~ m^-1 spectrum. !
+!  g is driven at m=1 / low-k with a constant          !
+!  compressive free-energy injection rate (the fix     !
+!  validated at 64^2 x 32, nm=32; job 2353404).        !
+!                                                     !
+!  np=64 => [P_fft=8, P_m=8, P_s=1] (nm_local=16,      !
+!  nly_local=16). Dissipation is k_max / m=nm          !
+!  normalized => identical coefficients to the nm=32   !
+!  validation. Restart every 10 t for continuation.    !
+!  max_wall_time set from the smoke128 dt/ms-step.      !
+!--------------------------------------------------!
+&parallelization
+  P_m = 8
+  P_s = 1
+/
+
+&box_parameters
+  lx = 1.0
+  ly = 1.0
+  lz = 1.0
+  nlx = 128
+  nly = 128
+  nlz = 64
+  nm  = 128
+/
+
+&time_parameters
+  dt    = 2.0d-4
+  nstep = 10000000
+  cfl   = 0.5d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+&operation_parameters
+  nonlinear          = T
+  write_hermite_flux = T
+/
+
+&physical_parameters
+  ! Alfvenic (phi,psi) hyper-dissipation keeps the RMHD bath stable.
+  nupe_x      = 4d+3
+  nupe_x_exp  = 4
+  etape_x     = 4d+3
+  etape_x_exp = 4
+  nupe_z      = 4d+1
+  nupe_z_exp  = 4
+  etape_z     = 4d+1
+  etape_z_exp = 4
+
+  ! Kinetic (g) closure: perp hyperviscosity mu at k_perp,max and a small
+  ! Hermite hypercollision nu at m=nm (both normalized to k_max / m=nm,
+  ! so resolution-agnostic -- identical to the nm=32 validation).
+  v_th          = 1.d0
+  mu_hyper_perp = 1.d1
+  nexp_perp     = 4
+  nu_hyper_m    = 1.d0
+  nexp_m        = 6
+  beta_i        = 1.d0
+  tau           = 1.d0
+  Zcharge       = 1.d0
+  alpha_root    = 1
+/
+
+&initial_condition
+  init_type = 'random'
+  init_seed = 7
+/
+
+!  elsasser => Alfven drive is (zppe, zmpe); g1 is the compressive
+!  m=1 drive (Meyrand 2019). All three share the low-k stir shell
+!  kmin..kmax. ene_inj_g fixes the compressive free-energy injection
+!  rate (only the comm_m rank owning m=1 injects).
+&force
+  driven    = T
+  elsasser  = .true.
+  fix_power = .true.
+  ene_inj   = 1.0d0
+  xhl_inj   = 0.8d0
+  ene_inj_g = 1.0d0
+  kmin = 0.d0  0.d0  1.d0
+  kmax = 1.0d0  1.0d0  2.d0
+  nfields = 3
+  stir_seed = 7
+/
+&forced_fields
+  field_names = 'zppe'      , 'zmpe'      , 'g1'
+  amplitudes  =  1.0        ,  1.0        ,  1.0
+  frequencies = (0.9, -0.6) , (0.9, -0.6) , (0.9, -0.6)
+/
+
+&terminate
+  ! Restart-chain strategy: a prior 64-node run hung in an MPI/GPU
+  ! collective at t~8.4, burning nodes until the PBS wall cap (the code
+  ! self-terminate never fires once the main loop is blocked). So we run
+  ! short segments and checkpoint often: self-terminate cleanly at 0.83 h
+  ! (50 min), well inside a 1 h PBS window, to flush a final restart +
+  ! close the NetCDF, then resume in the next segment. Each segment
+  ! advances ~t9 (45 ms/step, dt~1.35e-4); ~5 segments reach a steady
+  ! echo state. save_restart_intvl=2 bounds the loss if a segment hangs.
+  max_wall_time   = 0.83
+  terminate_file_name = 'terminate'
+/
+
+&diagnostics_parameters
+  write_intvl         = 0.5d0
+  write_intvl_2D      = 0.0d0
+  write_intvl_3D      = 0.0d0
+  SF2_nsample = 100000
+/
+
+&restart_parameters
+  save_restart_intvl = 2.0d0
+  restart_dir = './restart/'
+/
