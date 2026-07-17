@@ -4,3 +4,9 @@ dev/
 # local planning notes (not part of the codebase)
 tasks/
 verify_prod128/report_prod128_fig.png
+
+# heavy simulation output (NetCDF) -- never track
+*.nc
+
+# macOS junk
+.DS_Store

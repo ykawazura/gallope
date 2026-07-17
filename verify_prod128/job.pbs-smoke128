@@ -1,0 +1,58 @@
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=64:mpiprocs=1
+#PBS -l walltime=00:30:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N smoke128
+
+#=====================================================================
+#  SMOKE test for prod128 driven-echo (128^2 x 64, nm=128, np=64 =>
+#  P_fft=8, P_m=8, P_s=1). Short (max_wall_time=0.2h in the input):
+#  measure the CFL-limited dt and ms/step at production size and
+#  confirm no NaN + a working restart write before the full run.
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+
+ROOT=${PBS_O_WORKDIR}
+BIN=${ROOT}/../gallope
+
+name=smoke128
+RUN=${ROOT}/runs_${name}
+rm -rf "${RUN}"
+mkdir -p "${RUN}/restart" "${RUN}/out2d" "${RUN}/out3d"
+cp "${ROOT}/${name}.in" "${RUN}/gallope.in"
+
+echo "================ ${name} (128^2 x 64, nm=128, np=64 [8,8,1]) ================"
+t0=$(date +%s)
+( cd "${RUN}" && mpirun -np 64 "${BIN}" <gallope.in >out.std 2>&1 )
+rc=$?
+t1=$(date +%s)
+echo "[driver] ${name} done, rc=${rc}, wall=$((t1 - t0))s"
+
+echo "----- tail of ${name} out.std -----"
+tail -30 "${RUN}/out.std"
+echo "----- head of ${name} cfl.dat: tt dt_cfl max_vel_x max_vel_y -----"
+head -3 "${RUN}/cfl.dat" 2>/dev/null || echo "(no cfl.dat)"
+echo "----- tail of ${name} cfl.dat -----"
+tail -6 "${RUN}/cfl.dat" 2>/dev/null || echo "(no cfl.dat)"
+echo "----- restart files written? -----"
+ls -la "${RUN}/restart/" 2>/dev/null | tail -8
+
+NC=$(ls "${RUN}"/*.out.nc 2>/dev/null | head -1)
+if [ -z "${NC}" ]; then
+  echo "ERROR: no NetCDF output for ${name}"
+else
+  echo "----- ${name} analysis (analyze.py, steady window auto) -----"
+  python3 "${ROOT}/analyze.py" "${NC}" 0.0 2>&1
+fi
+
+echo "SMOKE128_DONE"

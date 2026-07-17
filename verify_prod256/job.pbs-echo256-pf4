@@ -1,0 +1,85 @@
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=32:mpiprocs=1
+#PBS -l walltime=06:00:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N echo256
+
+#=====================================================================
+#  BALANCED driven-echo PRODUCTION run (256^2 x 64, nm=128) -- P_fft=4
+#  variant. np=32 => [P_fft=4, P_m=8, P_s=1] (nly_local=64, nm_local=16).
+#
+#  MOTIVATION: the np=64 [P_fft=8] launch (job 2376716) HUNG at tt~2.73
+#  in an intermittent cuFFTMp/MPI collective deadlock (disk is NOT the
+#  cause -- /work has 7 PB free; the "quota exceeded" seen elsewhere was
+#  a side-effect of the deadlocked job holding Lustre grants). The earlier
+#  np=128 [P_fft=16] launch hung even earlier (tt~0.75). Two data points
+#  (P_fft=16 -> tt0.75, P_fft=8 -> tt2.73) suggest the deadlock onset is
+#  DELAYED as P_fft shrinks, so P_fft=4 (fewer cuFFTMp collective ranks)
+#  may run longer / not hang. The restart file is the GLOBAL k-space array
+#  (decomposition-independent MPI-IO subarray), so a P_fft=4 run continues
+#  from the P_fft=8 tt=2.5 checkpoint without a fresh start.
+#
+#  A companion watchdog (watchdog_echo256.sh) detects a cfl.dat freeze
+#  (= deadlock) and auto-requeues this script from the latest restart, so
+#  each hang costs <= save_restart_intvl (0.5 t). Reuses runs_echo256 (its
+#  restart/ holds the latest checkpoint) => INPUT=echo256_restart.in and
+#  FRESH=0 by default (keep the dir, continue). Dissipation = the clean-recipe
+#  operators (g k_perp^4 / nexp_perp=2, EM k^8) with ALL k-space coeffs x5 vs
+#  the 64^2 recipe (mu=500, EM perp 2.0d+4, EM parallel 2.0d+3; m-space
+#  nu_hyper_m=3 unscaled), identical in both echo256.in and echo256_restart.in.
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+
+ROOT=${PBS_O_WORKDIR}
+BIN=${ROOT}/../gallope
+
+# --- launch config -------------------------------------------------
+name=echo256               # base name for the run dir (runs_echo256)
+INPUT=${INPUT:-echo256_restart.in}   # continuation namelist (init_type=restart)
+FRESH=${FRESH:-0}          # 0 = keep run dir (continue from restart); 1 = wipe
+# -------------------------------------------------------------------
+
+RUN=${ROOT}/runs_${name}
+if [ "${FRESH}" = "1" ]; then
+  rm -rf "${RUN}"
+  mkdir -p "${RUN}/restart" "${RUN}/out2d" "${RUN}/out3d"
+fi
+cp "${ROOT}/${INPUT}" "${RUN}/gallope.in"
+
+echo "================ ${name} (INPUT=${INPUT}, FRESH=${FRESH}) 256^2 x 64 nm=128 np=32 [4,8,1] balanced clean-op k4/k8, k-diss x5 (mu=500,EMperp=2e4,EMpar=2e3) ================"
+t0=$(date +%s)
+( cd "${RUN}" && mpirun -np 32 "${BIN}" <gallope.in >>out.std 2>&1 )
+rc=$?
+t1=$(date +%s)
+echo "[driver] ${name} done, rc=${rc}, wall=$((t1 - t0))s"
+
+echo "----- tail of ${name} out.std -----"
+tail -30 "${RUN}/out.std"
+echo "----- tail of ${name} cfl.dat: tt dt_cfl max_vel_x max_vel_y -----"
+tail -4 "${RUN}/cfl.dat" 2>/dev/null || echo "(no cfl.dat)"
+echo "----- restart files -----"
+ls -la "${RUN}/restart/" 2>/dev/null | tail -8
+
+NC=$(ls "${RUN}"/*.out.nc 2>/dev/null | head -1)
+if [ -z "${NC}" ]; then
+  echo "ERROR: no NetCDF output for ${name}"
+else
+  # Preserve this segment's NetCDF under a jobid-stamped name (the code
+  # opens gallope.out.nc with NF90_CLOBBER; next restart would destroy it).
+  SEG="${ROOT}/echo256pf4_seg_${PBS_JOBID%%.*}.nc"
+  cp "${NC}" "${SEG}" && echo "----- preserved segment NetCDF -> ${SEG} -----"
+  echo "----- ${name} analysis (analyze.py, steady window t>=8) -----"
+  python3 "${ROOT}/analyze.py" "${NC}" 8.0 2>&1
+fi
+
+echo "ECHO256_DONE"
