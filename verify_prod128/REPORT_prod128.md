@@ -1,7 +1,23 @@
 # prod128 — Driven KRMHD velocity-space cascade (Phase 1-C-ii, Stage 2)
 
-**Status: FINAL** (steady window t≈19–21.76; production chain run to t=21.76, where W_free has peaked
-and settled to a statistical steady state — Gate 2 met). Result and diagnostic certification are final.
+**Status: INCONCLUSIVE — superseded by the balanced rerun (§21 / `echo128bal`).**
+
+> **Why this run does not settle the echo question.** The Alfvénic forcing here is strongly
+> **imbalanced** (`xhl_inj = 0.8` → steady σ_c = 0.967, z⁺²/z⁻² = 58.8). The advecting flow is then
+> dominated by a single coherent Elsasser field (z⁺), which is **non-stochastic**, so it cannot drive
+> the stochastic echo — the "no echo / forward cascade" reading below is an **artifact of the
+> imbalanced setup**, not a valid regime test. Three further inconsistencies confirm the run is not
+> a clean measurement: (1) χ ≈ 3.4 (strongly nonlinear — should fluidize) yet the flux is forward,
+> a contradiction; (2) the k-integrated Γ(m) is **not constant** (declines 0.95 → 0.57 across
+> m = 8–100, 6–9 dΓ/dm sign changes), so "0.98 × injection across m = 20–48" over-claims a plateau
+> that is not there; (3) no clean Hermite power law (sub-band slopes −0.52 / −0.14 / −0.66), and the
+> Alfvén bath is not fully steady (injection 1.0 vs dissipation 0.64). The telescoping certification
+> in §3 (top-m Γ = machine zero) is **still valid** — that is a diagnostic-correctness statement,
+> independent of the physics regime. **Rerun with balanced forcing** (`xhl_inj = 0`, σ_c ~ 0,
+> longer averaging, verify χ ≳ 1) to re-measure ⟨Γ(m)⟩; see `echo128bal.in` and todo.md §21.
+>
+> The sections below are retained as the record of what was reported at the time; treat every
+> physics conclusion in them as **retracted pending the balanced rerun**.
 
 ## 1. Result (結論)
 
