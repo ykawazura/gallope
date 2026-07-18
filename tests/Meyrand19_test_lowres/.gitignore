@@ -1,0 +1,8 @@
+# Track only the run definition and stdout log for this archive.
+# Everything else -- NetCDF/restart/out2d/rms.dat/cfl.dat, the diagnostics
+# copy, the generated figures, and README -- is reproducible and stays untracked.
+*
+!.gitignore
+!job.pbs-gpb
+!lowres_gpb.in
+!out.std

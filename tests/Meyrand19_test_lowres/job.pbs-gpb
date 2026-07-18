@@ -1,0 +1,53 @@
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q debug-g
+#PBS -l select=1:mpiprocs=1
+#PBS -l walltime=00:30:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N gpb_lowres
+
+#=====================================================================
+#  LOW-RESOLUTION g power-balance check (32^2 x 16, nm=16, np=1).
+#  Verifies the new compressive free-energy power-balance diagnostic
+#  dW_free/dt = P_g - D_g (KRMHD/diagnostics.F90:get_g_power_balance).
+#  Fresh random-IC run; outputs land in runs_gpb/ (gallope.out.nc etc.).
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+
+ROOT=${PBS_O_WORKDIR}
+BIN=${ROOT}/../../gallope        # tests/g_power_balance_test -> repo root
+INPUT=lowres_gpb.in
+RUN=${ROOT}/runs_gpb
+
+rm -rf "${RUN}"
+mkdir -p "${RUN}/restart" "${RUN}/out2d" "${RUN}/out3d"
+cp "${ROOT}/${INPUT}" "${RUN}/gallope.in"
+
+echo "================ g power-balance lowres (32^2 x 16, nm=16, np=1) ================"
+t0=$(date +%s)
+( cd "${RUN}" && mpirun -np 1 "${BIN}" <gallope.in >>out.std 2>&1 )
+rc=$?
+t1=$(date +%s)
+echo "[driver] done, rc=${rc}, wall=$((t1 - t0))s"
+
+echo "----- tail of out.std -----"
+tail -40 "${RUN}/out.std"
+echo "----- tail of cfl.dat: tt dt_cfl max_vel_x max_vel_y -----"
+tail -4 "${RUN}/cfl.dat" 2>/dev/null || echo "(no cfl.dat)"
+
+NC=$(ls "${RUN}"/*.out.nc 2>/dev/null | head -1)
+if [ -z "${NC}" ]; then
+  echo "ERROR: no NetCDF output"
+else
+  echo "----- NetCDF output -----"
+  ls -la "${NC}"
+fi
+echo "GPB_DONE"
