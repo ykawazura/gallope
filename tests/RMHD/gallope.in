@@ -1,0 +1,114 @@
+!--------------------------------------------------!
+!                  INPUTS for RMHD                 !
+!--------------------------------------------------!
+&box_parameters
+  lx = 1.0 ! to be multiplied by 2pi
+  ly = 1.0 ! to be multiplied by 2pi
+  lz = 1.0 ! to be multiplied by 2pi
+
+  nlx = 64
+  nly = 64
+  nlz = 64
+/
+
+!==============================================================================
+&time_parameters
+  dt    = 5.0d-3
+  nstep = 5000 
+  cfl   = 2.0d0
+  reset_method = 'decrement'  !'multiply'  => multiply by a factor of 0.5
+                             !'decrement' => decrement the top integer of dt
+  increase_dt = 0e+0         !When max dt computed from the cfl condition is 
+                             ! larger than this value, set dt = increase_dt.
+
+                             ! When the file 'dt_adjust' including a float number is created,
+                             ! dt will be manually adjusted to that value while running.
+/
+
+!==============================================================================
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3' ! 'gear3' or 'eSSPIFRK3'
+/
+
+!==============================================================================
+&operation_parameters
+  nonlinear = T
+/
+
+!==============================================================================
+&physical_parameters
+  ! regular and hyper viscosity ~ nu*k^2 + nu_h*k^(2*nu_h_exp)
+  nupe_x      = 4d+3  ! perp viscosity   for phi
+  nupe_x_exp  = 4
+  etape_x     = 4d+3  ! perp resistivity for psi
+  etape_x_exp = 4
+
+  ! hyper dissipation ~ nu*kz^(2*nuexp)
+  nupe_z      = 4d+1  ! para viscosity   for phi
+  nupe_z_exp  = 4
+  etape_z     = 4d+1  ! para resistivity for psi
+  etape_z_exp = 4
+/
+
+!==============================================================================
+&initial_condition
+  init_type = 'zero'
+  !init_type = 'single_mode'
+  !init_type = 'OT2'
+  !init_type = 'random'
+  !init_type = 'restart'
+/
+
+!==============================================================================
+!  When elsasser == .false, the forced_fields must be (phi, psi), and xhl_inj means nothing.
+!  When elsasser == .true , the forced_fields must be (zppe, zmpe)
+&force
+  driven = T
+  elsasser = .true.
+  fix_power = .true.
+  ene_inj = 1.0d0
+  xhl_inj = 0.8d0 ! 0 <= xhl_inj <= 1 ! helicity injection rate. only when elsasser = .true.
+!  res_inj = 0.99d0 ! 0 <= res_inj <= 1 ! residual energy injection rate. only when elsasser = .false.
+  kmin = 0.d0  0.d0  1.d0
+  kmax = 1.0d0  1.0d0  2.d0
+  nfields = 2
+/
+&forced_fields
+  field_names = 'zppe'      , 'zmpe'            
+!  field_names = 'phi'      , 'psi'            
+  amplitudes  =  1.0      ,  1.0             
+  frequencies = (0.9, -0.6), (0.9, -0.6)
+/
+
+!==============================================================================
+&terminate
+  max_wall_time   = 9.5             ! The simulation will be terminated when the wall  
+                                    ! time exceeds this value (in the unit of hour).
+
+  terminate_file_name = 'terminate' ! The simulation will be terminated when the file 
+                                    ! named this value is created in the root directory
+                                    ! in the middle of simulaiton.
+/
+
+!==============================================================================
+&diagnostics_parameters
+  write_intvl         = 0.1d0  ! output every this value.
+  write_intvl_2D      = 5.0d0  ! output every this value.
+  write_intvl_3D      = 0.0d0  ! output every this value.
+!  write_intvl_kpar    = 0.0d0  ! output every this value.
+!  write_intvl_SF2     = 0.0d0  ! output every this value.
+!  write_intvl_nltrans = 0.0d0  ! output every this value.
+  SF2_nsample = 100000 ! number of sample points for each separation
+/
+
+!==============================================================================
+&restart_parameters
+  save_restart_intvl = 1.0d0      ! save every this value.
+  restart_dir = './restart/'
+/
+
+
+
+
+
+

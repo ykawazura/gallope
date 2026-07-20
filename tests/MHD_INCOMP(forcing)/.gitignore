@@ -1,0 +1,8 @@
+# Track only the run definition and stdout log (mirrors tests/Meyrand19_test_lowres).
+# Everything else -- NetCDF/restart/out2d/rms.dat/cfl.dat, the diagnostics copy,
+# and the generated figures -- is reproducible and stays untracked.
+*
+!.gitignore
+!gallope.in
+!job.pbs-regress
+!out.std
