@@ -8,5 +8,14 @@ verify_prod128/report_prod128_fig.png
 # heavy simulation output (NetCDF) -- never track
 *.nc
 
+# run output directories & merged chunks -- never track
+results/
+out2d/
+out3d/
+
+# python bytecode caches & diagnostics figures
+**/__pycache__/
+diagnostics/*/fig_*/
+
 # macOS junk
 .DS_Store

@@ -1145,12 +1145,16 @@ contains
     use grid, only: nlx_local, nly, nlz_padded
     use grid, only: nm_local, m_offset, ntot
     use params, only: zi, v_th
+    use mp, only: proc0
+    use time_stamp, only: put_time_stamp, timer_nonlinear_terms_g
     use cuFFTmp, only: btran_c2r, ftran_r2c
     implicit none
     complex(8), dimension(:,:,:,0:), intent(in) :: g_in
     integer :: i, j, k, mm, m_glob
     real(8) :: cp, cm
     complex(8) :: sm
+
+    if (proc0) call put_time_stamp(timer_nonlinear_terms_g)
 
     do mm = 1, nm_local
       ! streaming stencil coefficients for this moment (host copy of alpha; the
@@ -1210,6 +1214,8 @@ contains
       enddo
       !$acc end data
     enddo
+
+    if (proc0) call put_time_stamp(timer_nonlinear_terms_g)
 
   end subroutine get_nonlinear_terms_g
 

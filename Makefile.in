@@ -9,7 +9,7 @@ arch = miyabi
 # 	MHD_INCOMP     ! incompressible MHD
 # 	RMHD           ! reduced MHD
 # 	KRMHD          ! kinetic RMHD (4D: RMHD + passive Hermite moments g_m)
-MODEL = RMHD
+MODEL = KRMHD
 
 # debug
 DEBG = no

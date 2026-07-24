@@ -60,6 +60,8 @@ module io
   integer :: zppe2_bin_id, zmpe2_bin_id
   ! Hermite (g) spectrum + free energy (Meyrand 2019)
   integer :: mm_id, W_free_id, W_m_id, g2_bin_id
+  ! g free-energy power balance: injection P_g and dissipation D_g (dW_free/dt = P_g - D_g)
+  integer :: p_g_sum_id, Dg_sum_id
   ! Hermite free-energy flux Gamma_m (Meyrand 2019 eq 9; gated by write_hermite_flux)
   integer :: Gamma_m_id
   ! k-integrated Hermite flux Gamma(m) (telescoping invariant; gated likewise)
@@ -268,6 +270,9 @@ contains
       status = nf90_def_var (ncid, 'W_free', NF90_DOUBLE, tt_dim, W_free_id)
       status = nf90_def_var (ncid, 'W_m'   , NF90_DOUBLE, (/mm_dim, tt_dim/), W_m_id)
       status = nf90_def_var (ncid, 'g2_bin', NF90_DOUBLE, bin4_dim, g2_bin_id)
+      ! g free-energy power balance scalars (Meyrand 2019: dW_free/dt = P_g - D_g)
+      status = nf90_def_var (ncid, 'p_g_sum', NF90_DOUBLE, tt_dim, p_g_sum_id)
+      status = nf90_def_var (ncid, 'Dg_sum' , NF90_DOUBLE, tt_dim, Dg_sum_id )
       ! Hermite free-energy flux Gamma_m(kpbin,mm,kz,tt) (Meyrand 2019 eq 9)
       if (write_hermite_flux) then
         status = nf90_def_var (ncid, 'Gamma_m', NF90_DOUBLE, bin4_dim, Gamma_m_id)
@@ -318,7 +323,7 @@ contains
                       upe2_bin , bpe2_bin , &
                       zppe2_bin, zmpe2_bin, &
                       !
-                      nm, g2bin, Wm, W_free, Gamma_m, Gamma_m_kint &
+                      nm, g2bin, Wm, W_free, p_g_sum, Dg_sum, Gamma_m, Gamma_m_kint &
                     )
     use time, only: tt
     use grid, only: nlx, nly, nlz, nkz
@@ -340,6 +345,7 @@ contains
     real(8), intent(in) :: g2bin(1:nkpolar, nm, nkz)
     real(8), intent(in) :: Wm(nm)
     real(8), intent(in) :: W_free
+    real(8), intent(in) :: p_g_sum, Dg_sum
     real(8), intent(in) :: Gamma_m(1:nkpolar, nm, nkz)
     real(8), intent(in) :: Gamma_m_kint(nm)
 
@@ -377,6 +383,8 @@ contains
       status = nf90_put_var (ncid, zmpe2_bin_id, zmpe2_bin, start=start3, count=count3)
       ! Hermite (g) spectrum + free energy (Meyrand 2019 eq 6)
       status = nf90_put_var (ncid, W_free_id, W_free, start=(/nout/))
+      status = nf90_put_var (ncid, p_g_sum_id, p_g_sum, start=(/nout/))
+      status = nf90_put_var (ncid, Dg_sum_id , Dg_sum , start=(/nout/))
       status = nf90_put_var (ncid, W_m_id, Wm, start=(/1, nout/), count=(/nm, 1/))
       start4(1) = 1;       start4(2) = 1;  start4(3) = 1;   start4(4) = nout
       count4(1) = nkpolar; count4(2) = nm; count4(3) = nkz; count4(4) = 1

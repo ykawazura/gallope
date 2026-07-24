@@ -36,7 +36,7 @@ module params
   !$acc declare create(shear, q)
 
   ! KRMHD (Hermite v_parallel moments)
-  real(8) :: v_th                          ! thermal speed (streaming coefficient, 1-B)
+  real(8) :: v_th                          ! thermal speed = sqrt(beta_i); derived, not a free input
   real(8) :: alpha                         ! ion-sound coupling; computed from beta_i,tau,Z (1-B)
   real(8) :: mu_hyper_perp, nu_hyper_m     ! perp hyperviscosity / Hermite hypercollision
   integer :: nexp_perp, nexp_m             ! their exponents: mu*(kp2/kp2max)^nexp_perp, nu*(m/nm)^nexp_m
@@ -77,7 +77,7 @@ contains
     namelist /operation_parameters/ nonlinear, write_hermite_flux
     namelist /physical_parameters/ nupe_x , nupe_x_exp , nupe_z , nupe_z_exp , &
                                    etape_x, etape_x_exp, etape_z, etape_z_exp, &
-                                   v_th, mu_hyper_perp, nexp_perp, nu_hyper_m, nexp_m, &
+                                   mu_hyper_perp, nexp_perp, nu_hyper_m, nexp_m, &
                                    beta_i, tau, Zcharge, alpha_root
 
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
@@ -104,8 +104,7 @@ contains
     etape_x = 0.d0
     etape_z = 0.d0
     ! KRMHD defaults: mu=nu=0 -> identity integrating factor (pure passive
-    ! advection in 1-A); v_th unused until the streaming term is wired in 1-B.
-    v_th          = 1.d0
+    ! advection in 1-A). v_th is NOT defaulted here: it is derived from beta_i below.
     mu_hyper_perp = 0.d0
     nexp_perp     = 4        ! mu*k_perp^8 = mu*(k_perp^2)^4
     nu_hyper_m    = 0.d0
@@ -124,16 +123,24 @@ contains
         if (ierr/=0) write(*,*) "Reading physical_parameters failed"
     close(unit)
 
-    ! ion-sound coupling alpha from (beta_i, tau, Zcharge) [Meyrand et al. 2019].
+    ! Thermal speed and ion-sound coupling are BOTH set by (beta_i, tau, Zcharge);
+    ! neither is a free input [Meyrand et al. 2019]. With the code normalization
+    ! v_A = 1, the ion thermal speed relative to the Alfven speed is
+    !   v_th = v_thi/v_A = sqrt(8 pi n_i T_i / B_0^2) = sqrt(beta_i),
+    ! consistent with the sqrt(m/2) Hermite ladder (v_th = sqrt(2 T_i/m_i)). tau
+    ! and Z do not enter v_thi (they act through the electron response = alpha).
     !   kappa = sqrt((1 + tau/Z)^2 + 1/beta_i^2)
     !   alpha = 1 / (tau/Z - 1/beta_i + alpha_root*kappa)
     ! The +/-kappa roots are the two compressive modes; alpha_root (+1/-1) picks
-    ! one for the single g-hierarchy of phase 1. For physical inputs (beta_i,
-    ! tau, Z > 0) the denominator is bounded away from zero for either root.
+    ! one for the single g-hierarchy of phase 1 (a discrete mode choice, not a
+    ! derived quantity). For physical inputs (beta_i, tau, Z > 0) the denominator
+    ! is bounded away from zero for either root.
     if (beta_i > 0.d0) then
+      v_th  = sqrt(beta_i)
       kappa = sqrt((1.d0 + tau/Zcharge)**2 + 1.d0/beta_i**2)
       alpha = 1.d0/(tau/Zcharge - 1.d0/beta_i + dble(alpha_root)*kappa)
     else
+      v_th  = 1.d0     ! degenerate fallback (beta_i<=0 is unphysical/test-only)
       alpha = 0.d0
     endif
 

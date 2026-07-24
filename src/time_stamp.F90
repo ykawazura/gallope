@@ -8,7 +8,7 @@ module time_stamp
   public  put_time_stamp
   public  timer_total, timer_init, timer_finish
   public  timer_diagnostics_total, timer_diagnostics_SF2, timer_diagnostics_kpar, timer_diagnostics_nltrans
-  public  timer_advance, timer_nonlinear_terms 
+  public  timer_advance, timer_nonlinear_terms, timer_nonlinear_terms_g
   public  timer_fft, timer_fft_prepost
   public  timer_force
   public  timer_io_total
@@ -25,6 +25,7 @@ module time_stamp
   real(8) :: timer_diagnostics_nltrans(2) = 0.d0
   real(8) :: timer_advance            (2) = 0.d0
   real(8) :: timer_nonlinear_terms    (2) = 0.d0
+  real(8) :: timer_nonlinear_terms_g  (2) = 0.d0
   real(8) :: timer_fft                (2) = 0.d0
   real(8) :: timer_fft_prepost        (2) = 0.d0
   real(8) :: timer_force              (2) = 0.d0

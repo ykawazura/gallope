@@ -81,6 +81,7 @@ contains
     real(8), dimension(:), allocatable :: Wm                          ! per-m free energy
     real(8), dimension(:), allocatable :: gam_kint                    ! k-integrated Hermite flux Gamma(m)
     real(8) :: W_free                                                 ! Meyrand 2019 eq (6)
+    real(8) :: p_g_sum, Dg_sum                                        ! g power balance: dW_free/dt = P_g - D_g
     complex(8) :: phi_mid, psi_mid, jpa_mid, fphi_mid, fpsi_mid
     complex(8) :: zppe_mid, zmpe_mid, fzppe_mid, fzmpe_mid
 
@@ -251,6 +252,11 @@ contains
     W_free = 0.d0
     if (proc0) W_free = sum(Wm) + alpha*Wm(1)
 
+    ! g free-energy power balance scalars P_g (injection) and D_g (dissipation),
+    ! assembled on proc0 via comm_fm inside the helper. Post-processing checks
+    ! dW_free/dt = P_g - D_g (dW_free/dt from finite-differencing W_free(t)).
+    call get_g_power_balance(p_g_sum, Dg_sum)
+
     ! Hermite free-energy flux Gamma_m(k_perp) (Meyrand 2019 eq 9). Costly (extra
     ! FFTs to reconstruct grad_par S_m), so it is gated behind write_hermite_flux.
     ! When disabled, gam_bin stays zero and is not written to NetCDF.
@@ -268,7 +274,7 @@ contains
                   upe2_bin , bpe2_bin , &
                   zppe2_bin, zmpe2_bin, &
                   !
-                  nm, g2bin, Wm, W_free, gam_bin, gam_kint &
+                  nm, g2bin, Wm, W_free, p_g_sum, Dg_sum, gam_bin, gam_kint &
                 )
 
     !$acc exit data delete(upe2, bpe2)
@@ -306,7 +312,8 @@ contains
     ! With P_m>1 (and/or P_s>1) every comm_fft group redundantly solves the
     ! same problem; verify the fields stay bitwise identical across groups.
     if (nproc_m*nproc_s > 1) call check_redundant_consistency
-    ! Global g checksum (P_m-invariant); printed for cross-run split/IO checks.
+    ! One-time derived-alpha banner, plus a g redundancy assert across comm_s
+    ! when P_s>1 (silent no-op otherwise).
     call check_g_consistency
   end subroutine loop_diagnostics
 
@@ -384,6 +391,95 @@ contains
     call sum_reduce(g2bin, 0, comm=comm_fm)
     call sum_reduce(Wm,    0, comm=comm_fm)
   end subroutine get_g_spectrum_2d
+
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Compressive free-energy power balance scalars (Meyrand 2019):
+!!            dW_free/dt = P_g - D_g.
+!!          P_g  = sum_k Re[conjg(g_1)*fg]                 (g_1 forcing injection)
+!!          D_g  = sum_{k,m} (1 + alpha*delta_{m,0}) * D_op(m,k) * |g_m|^2
+!!            D_op = mu_hyper_perp*(kprp2/kprp2_max)^nexp_perp
+!!                 + nu_hyper_m*(m/nm)^nexp_m              (mirrors get_imp_terms_tintg_g)
+!!          Both carry the kz/=1 factor-of-2 (unstored negative-kz half, RMHD
+!!          convention) and NO kprp2 weight (W_free is 1/2|g_m|^2, not the
+!!          1/2 kprp2|phi|^2 Alfven energy). The (1+alpha) weight on the m=0 rung
+!!          matches the alpha-weighted free energy (eq 6); P_g sees no alpha since
+!!          it injects into m=1. Reduced on comm_fm (kperp over comm_fft, m over
+!!          comm_m; g is redundant across comm_s) so the total lands on proc0.
+!!          dW_free/dt itself is NOT computed here: it is formed in post-processing
+!!          as a finite difference of the stored W_free(t) time series.
+!-----------------------------------------------!
+  subroutine get_g_power_balance(p_g_sum, Dg_sum)
+    use mp, only: sum_reduce, comm_fm
+    use grid, only: nkx, nky_local, nkz
+    use grid, only: nm, nm_local, m_offset
+    use grid, only: kprp2, kprp2_max
+    use fields, only: g
+    use force, only: fg, driven, is_forced
+    use params, only: alpha, mu_hyper_perp, nu_hyper_m, nexp_perp, nexp_m
+    use utils, only: cabs2
+    implicit none
+    real(8), intent(out) :: p_g_sum, Dg_sum
+    real(8) :: Dsum, Psum, Dop, wt, dloc, ploc
+    integer :: i, j, k, mm, m_phys, mm1
+    logical :: force_g, owns_m1
+
+    ! --- D_g : free-energy dissipation, summed over all local (k, m) ---
+    Dsum = 0.d0
+    do mm = 1, nm_local
+      m_phys = m_offset + mm - 1
+      wt = 1.d0
+      if (m_phys == 0) wt = 1.d0 + alpha   ! (1+alpha) weight on the m=0 rung (eq 6)
+      !$acc parallel loop collapse(3) gang vector default(present) &
+      !$acc& private(Dop, dloc) reduction(+:Dsum)
+      do i = 1, nkx
+        do j = 1, nky_local
+          do k = 1, nkz
+            Dop = mu_hyper_perp*(kprp2(k, j, i)/kprp2_max)**nexp_perp &
+                + nu_hyper_m*(dble(m_phys)/dble(nm))**nexp_m
+            dloc = wt*Dop*cabs2(g(k, j, i, mm))
+            ! compensate the unstored negative-kz half (RMHD convention)
+            if (k /= 1) dloc = 2.0d0*dloc
+            Dsum = Dsum + dloc
+          end do
+        end do
+      end do
+      !$acc end parallel loop
+    end do
+    Dg_sum = Dsum
+
+    ! --- P_g : g_1 forcing injection Re[conjg(g_1)*fg] ---
+    ! Only the comm_m rank owning global m=1 contributes (fg is allocated there
+    ! alone, and only when g1 is forced); the comm_fm reduction below carries the
+    ! total to proc0. Guard mirrors advance.F90 solve (force_g .and. owns_m1).
+    Psum    = 0.d0
+    force_g = driven .and. is_forced('g1')
+    mm1     = 2 - m_offset
+    owns_m1 = (mm1 >= 1 .and. mm1 <= nm_local)
+    if (force_g .and. owns_m1) then
+      !$acc parallel loop collapse(3) gang vector default(present) &
+      !$acc& private(ploc) reduction(+:Psum)
+      do i = 1, nkx
+        do j = 1, nky_local
+          do k = 1, nkz
+            ! Re[conjg(g_1)*fg], symmetrized as in force.F90:normalize_force_g
+            ploc = dble(0.5d0*( g(k, j, i, mm1)*conjg(fg(k, j, i)) &
+                              + conjg(g(k, j, i, mm1))*fg(k, j, i) ))
+            if (k /= 1) ploc = 2.0d0*ploc
+            Psum = Psum + ploc
+          end do
+        end do
+      end do
+      !$acc end parallel loop
+    endif
+    p_g_sum = Psum
+
+    ! g is m-distributed (comm_m) x kperp-distributed (comm_fft), redundant across
+    ! comm_s, so a single comm_fm reduction assembles the full sums on proc0.
+    call sum_reduce(Dg_sum , 0, comm=comm_fm)
+    call sum_reduce(p_g_sum, 0, comm=comm_fm)
+  end subroutine get_g_power_balance
 
 
 !-----------------------------------------------!
@@ -707,74 +803,49 @@ contains
   subroutine check_g_consistency
     use MPI
     use mp, only: proc0, comm_fm, comm_s, nproc_s
-    use grid, only: nkx, nky_local, nkz, nm_local, m_offset
+    use grid, only: nkx, nky_local, nkz, nm_local
     use fields, only: g
-    use time, only: tt
     use params, only: v_th, alpha, beta_i, tau, Zcharge, alpha_root
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
-    integer :: i, j, k, mm, nbad, ierr
+    integer :: i, j, k, mm, ierr
     real(8) :: re, im
     integer(int64) :: h, h_fm, h_or, h_and
     ! one-time echo of the derived ion-sound coupling alpha for the unit check
     logical, save :: alpha_banner = .true.
-    ! streaming diagnostics probe (minimal; superseded by the 1-C spectra):
-    !   Wg_tot = 1/2 sum_k sum_m |g_{m,k}|^2   (Hermite free energy alone; NOT
-    !            conserved when alpha/=0 -- the m=0 rung feeds it as g_0 mixes)
-    !   g0var  = sum_k |g_{0,k}|^2             (m=0 moment, for Landau/recurrence)
-    !   W_eq6  = Wg_tot + 1/2 alpha sum_k |g_{0,k}|^2   (Meyrand 2019 eq 6 free
-    !            energy incl. the electrostatic term; THIS is streaming-conserved)
-    real(8) :: Wg_tot, g0var, Wg_red, g0_red, W_eq6
 
-    !$acc update host(g)
-    h = 0_int64
-    Wg_tot = 0.d0; g0var = 0.d0
-    do mm = 1, nm_local
-      do i = 1, nkx
-        do j = 1, nky_local
-          do k = 1, nkz
-            re = dble(g(k,j,i,mm)); im = aimag(g(k,j,i,mm))
-            h = ieor(h, transfer(re, 0_int64)); h = ieor(h, transfer(im, 0_int64))
-            Wg_tot = Wg_tot + re*re + im*im
-            if (m_offset == 0 .and. mm == 1) g0var = g0var + re*re + im*im
+    ! Provenance: echo the derived ion-sound coupling once for the unit check.
+    if (proc0 .and. alpha_banner) then
+      write (*, '("[alpha_check] beta_i tau Zcharge alpha_root = ", &
+        &3es24.16e3, i3)') beta_i, tau, Zcharge, alpha_root
+      write (*, '("[alpha_check] v_th alpha = ", 2es24.16e3)') v_th, alpha
+      alpha_banner = .false.
+    endif
+
+    ! g is stored redundantly across comm_s (split over the m x fft plane).
+    ! With P_s>1, assert the per-plane XOR checksum is identical on every
+    ! s-group; with P_s==1 there is no redundant copy to compare, so skip the
+    ! whole thing (no device copy, no reduction, no stdout).
+    if (nproc_s > 1) then
+      !$acc update host(g)
+      h = 0_int64
+      do mm = 1, nm_local
+        do i = 1, nkx
+          do j = 1, nky_local
+            do k = 1, nkz
+              re = dble(g(k,j,i,mm)); im = aimag(g(k,j,i,mm))
+              h = ieor(h, transfer(re, 0_int64)); h = ieor(h, transfer(im, 0_int64))
+            end do
           end do
         end do
       end do
-    end do
-
-    ! P_m-invariant global g checksum over the (m x fft) plane.
-    call mpi_allreduce(h, h_fm, 1, MPI_INTEGER8, MPI_BXOR, comm_fm, ierr)
-
-    ! Sum the probe partial sums over the same (m x fft) plane (g is redundant
-    ! across comm_s, so comm_fm assembles the whole field exactly once). These
-    ! are FP magnitudes for physics observation only, never a bit PASS/FAIL.
-    call mpi_allreduce(Wg_tot, Wg_red, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_fm, ierr)
-    call mpi_allreduce(g0var,  g0_red, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_fm, ierr)
-    Wg_red = 0.5d0*Wg_red
-    ! Meyrand 2019 eq (6) free energy: the electrostatic term restores the
-    ! quadratic invariant that the streaming operator conserves for nu=0.
-    W_eq6  = Wg_red + 0.5d0*alpha*g0_red
-
-    ! g is redundant across comm_s: the plane checksum must match every s.
-    nbad = 0
-    if (nproc_s > 1) then
+      ! P_m-invariant global g checksum over the (m x fft) plane, then compare
+      ! it across the redundant s-groups.
+      call mpi_allreduce(h, h_fm, 1, MPI_INTEGER8, MPI_BXOR, comm_fm, ierr)
       call mpi_allreduce(h_fm, h_or,  1, MPI_INTEGER8, MPI_BOR,  comm_s, ierr)
       call mpi_allreduce(h_fm, h_and, 1, MPI_INTEGER8, MPI_BAND, comm_s, ierr)
-      if (h_or /= h_and) nbad = nbad + 1
-    endif
-
-    if (proc0) then
-      if (alpha_banner) then
-        write (*, '("[alpha_check] beta_i tau Zcharge alpha_root = ", &
-          &3es24.16e3, i3)') beta_i, tau, Zcharge, alpha_root
-        write (*, '("[alpha_check] v_th alpha = ", 2es24.16e3)') v_th, alpha
-        alpha_banner = .false.
-      endif
-      write (*, '("[check_g_consistency] global g XOR checksum (comm_fm) = ", z16.16)') h_fm
-      if (nbad /= 0) write (*, &
+      if (proc0 .and. h_or /= h_and) write (*, &
         '("[check_g_consistency] FAIL: comm_s redundancy mismatch")')
-      write (*, '("[g_probe] tt Wg_tot g0var W_eq6 = ", 4es24.16e3)') &
-        tt, Wg_red, g0_red, W_eq6
     endif
   end subroutine check_g_consistency
 
