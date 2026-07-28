@@ -1,0 +1,54 @@
+#=======================================================================
+# TSUBAME4.0 (Institute of Science Tokyo) -- AMD EPYC 9654 x2 + H100 SXM5 x4
+#
+# Self-contained on purpose: a plain 'make' works in a bare login shell with
+# no modules loaded. All toolchain locations are pinned here as absolute
+# paths, so the build is reproducible no matter which modules happen to be
+# loaded.
+#
+# Keep these paths in sync with batch/env-tsubame.sh, which loads the matching
+# modules. That file is still required at RUN time, for LD_LIBRARY_PATH;
+# batch/job.sh-tsubame sources it.
+#
+# Why nvhpc 26.1 (the site default) and not 24.1:
+#   cuFFTMp does its inter-node FFT through NVSHMEM, and the NVSHMEM 2.10.1
+#   bundled with nvhpc/24.1 cannot open an inter-node transport on this
+#   machine at all -- its ibrc looks for the nv_peer_mem / nvidia_peermem
+#   kernel modules, which the driver-580 + OFED-26.04 stack here replaced
+#   with DMA-BUF, and none of the transports it ships as alternatives work
+#   either. 26.1 brings NVSHMEM 3.5.19, whose ibrc registers the symmetric
+#   heap through mlx5dv DMA-BUF. Single-node runs work with either.
+#
+# netCDF / HDF5 on TSUBAME are only built for nvhpc24.1, but that is not a
+# problem: a .mod written by nvfortran 24.1 is readable by 26.1, and the
+# libraries themselves are C.
+#
+# netCDF-C and netCDF-Fortran share one prefix here, so unlike arch/miyabi.in
+# there is no separate NETCDF_FORTRAN_DIR.
+#
+# LINKER is intentionally not set: src/Makefile overrides it with ':='.
+# That override expands ${NVHPC_ROOT}, which is why it is defined here.
+#=======================================================================
+NVHPC_ROOT        = /apps/t4/rhel9/isv/nvidia/hpc_sdk/Linux_x86_64/26.1
+MPI_ROOT          = /apps/t4/rhel9/free/openmpi/5.0.2/nvhpc
+HDF5_PARALLEL_DIR = /apps/t4/rhel9/free/hdf5-parallel/1.14.3/nvhpc24.1/openmpi5.0.2
+NETCDF_DIR        = /apps/t4/rhel9/free/netcdf-parallel/4.9.2/nvhpc24.1/openmpi5.0.2
+
+# The OpenMPI wrapper records nvfortran's absolute path, so it needs no PATH.
+# That path is 24.1's, because the site built openmpi/5.0.2 with it; OMPI_FC
+# swaps the compiler only, leaving the MPI library that the site netCDF and
+# HDF5 were linked against in place.
+F90 = $(MPI_ROOT)/bin/mpif90
+export OMPI_FC = $(NVHPC_ROOT)/compilers/bin/nvfortran
+
+NETCDF_INC = -I$(NETCDF_DIR)/include
+NETCDF_LIB = -L$(NETCDF_DIR)/lib -lnetcdff -lnetcdf \
+             -L$(HDF5_PARALLEL_DIR)/lib -lhdf5_hl -lhdf5 -lz
+
+# -gpu=cc90      : H100 (Hopper) only, avoids generating code for every arch
+# -gpu=cuda13.1  : the only CUDA toolkit bundled with nvhpc/26.1. Must be given
+#                  explicitly -- login nodes have no NVIDIA driver, so nvfortran
+#                  cannot infer the version and falls back to an absent default.
+FLAGS  = -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel \
+         -cuda -cudalib=cufftmp -gpu=cc90,cuda13.1
+#FLAGS += -gpu=mem:unified

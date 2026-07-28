@@ -1,0 +1,61 @@
+#!/bin/sh
+#=======================================================================
+# gallope on TSUBAME4.0 -- Altair Grid Engine (AGE), NOT PBS.
+#
+# Run this script, do NOT qsub it: it submits itself.
+#
+#     ./batch/job.sh-tsubame                          # 1 node,  4 ranks
+#     NODES=2 ./batch/job.sh-tsubame                  # 2 nodes, 8 ranks
+#     RUNNAME=smoke NODES=2 ./batch/job.sh-tsubame
+#
+# The TSUBAME group is charged through "qsub -g", which is an option of the
+# TSUBAME qsub wrapper only: AGE's parser of in-script "#$" directives rejects
+# it ("invalid option argument -g"), and AGE's own -P (project) is a different
+# namespace. Re-submitting ourselves is therefore what lets the group name live
+# in this file instead of on the command line.
+#
+# node_f = 1 whole node = 192 cores / 768GiB / H100 SXM5 x4, and gallope runs
+# one rank per GPU, so the rank count is 4 x NHOSTS. KRMHD.in has P_m=1, P_s=1,
+# i.e. P_fft = number of ranks; that stays valid at any node count as long as
+# ny and nlx remain divisible by it.
+#
+# The ranks are launched through batch/gpu-bind-tsubame.sh: on a node with
+# several GPUs the OpenACC device must be pinned from the environment before
+# the process starts, which init_cuda cannot do. See that script for why.
+#
+# "-x LD_LIBRARY_PATH" is what makes the environment set by
+# batch/env-tsubame.sh reach the ranks on the *other* nodes. Ranks on the node
+# running mpirun inherit it directly, but remote ranks are started by a prted
+# spawned through a fresh login shell, which never sources that file -- without
+# it they die with "libnetcdff.so.7: cannot open shared object file".
+#
+# HCOLL is switched off because it cannot attach to the sub-communicators the
+# code builds (MPI_Comm_split_type in init_cuda, and the P_fft/P_m/P_s grid):
+# it fails to enable on each one and prints
+# "mca_coll_hcoll_save_coll_handlers failed" per rank per communicator. The
+# run is correct without it -- OpenMPI just falls back to its tuned collectives
+# -- but the message would otherwise bury the output of a long run.
+#=======================================================================
+#$ -cwd
+#$ -l h_rt=0:30:00
+#$ -N gallope_krmhd
+#$ -j y
+
+TSUBAME_GROUP=tgh-26IDS
+GPUS_PER_NODE=4
+
+RUNNAME=${RUNNAME:-gallope}
+
+if [ -z "${JOB_ID}" ]; then     # not under AGE yet -> submit ourselves
+    exec qsub -g ${TSUBAME_GROUP} -l node_f=${NODES:-1} \
+              -v RUNNAME=${RUNNAME} "$0"
+fi
+
+. ./batch/env-tsubame.sh
+
+nrank=$(( ${NHOSTS:-1} * GPUS_PER_NODE ))
+
+mpirun -n ${nrank} -npernode ${GPUS_PER_NODE} \
+    -x LD_LIBRARY_PATH --mca coll_hcoll_enable 0 \
+    ./batch/gpu-bind-tsubame.sh \
+    ./gallope ${RUNNAME} < ${RUNNAME}.in > ${RUNNAME}.out.std 2>&1
