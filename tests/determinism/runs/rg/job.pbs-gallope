@@ -1,0 +1,75 @@
+#!/bin/sh -l
+#PBS -q debug-g
+#PBS -l select=4:mpiprocs=1
+#PBS -l walltime=00:30:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N det-gallope
+#=====================================================================
+#  Deterministic Gallope <-> Calliope comparison: the Gallope side.
+#
+#  Runs the 3D Orszag-Tang initial condition to several step counts and
+#  saves the terminal restart of each, for compare.py.  Two series:
+#
+#    noshear  shear = .false.          isolates the shared solver core
+#    shear    shear = .true., q = 1.5  additionally exercises the remap
+#             (tremap = ly/(lx*q) = 0.667, so nstep = 2000 at dt = 1e-3
+#              crosses three remaps)
+#
+#  Each series is run on 1 and on 4 GPUs.  The 1-vs-4 difference bounds
+#  what is attributable to summation order alone, which is the control
+#  that makes the Gallope-vs-Calliope difference interpretable.
+#
+#  Self-contained: the binary ./gallope and gallope.in live in this dir.
+#  gallope.in is the single source of truth; the variants below are
+#  derived from it by sed, so the two never drift apart.
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+
+run_one() {
+  series=$1; nstep=$2; ngpu=$3; shear=$4; q=$5
+  d="run_${series}_n${nstep}_g${ngpu}"
+  rm -rf "${d}"
+  mkdir -p "${d}/restart" "${d}/out2d" "${d}/out3d"
+  sed -e "s/^  nstep = .*/  nstep = ${nstep}/" \
+      -e "s/^  shear  = .*/  shear  = ${shear}/" \
+      -e "s/^  q      = .*/  q      = ${q}/" \
+      gallope.in > "${d}/gallope.in"
+  cp gallope "${d}/" 2>/dev/null || ln -sf ../gallope "${d}/gallope"
+
+  t0=$(date +%s)
+  ( cd "${d}" && mpirun -n ${ngpu} ./gallope <gallope.in >out.std 2>&1 )
+  rc=$?
+  t1=$(date +%s)
+  echo "[det] ${d} rc=${rc} wall=$((t1 - t0))s"
+  # The gate for the whole comparison: tt must equal nstep*dt exactly.
+  # Any deviation means the adaptive step fired and the run is unusable.
+  echo "      time.dat: $(tail -1 ${d}/restart/time.dat 2>/dev/null || echo MISSING)"
+  echo "      expected tt = ${nstep} * dt"
+  if [ ${rc} -ne 0 ]; then
+    echo "----- tail out.std -----"
+    tail -30 "${d}/out.std"
+  fi
+}
+
+for ngpu in 1 4; do
+  for nstep in 1 10 100 1000; do
+    run_one noshear ${nstep} ${ngpu} ".false." "0.d0"
+  done
+  for nstep in 1 10 100 1000 2000; do
+    run_one shear ${nstep} ${ngpu} ".true." "1.5d0"
+  done
+done
+
+echo "----- is_div_free as printed by the code (nstep=1000, 4 GPU) -----"
+grep -i "div" run_noshear_n1000_g4/out.std 2>/dev/null | head -10
+echo "----- dt history (must be constant) -----"
+awk 'NR<=2 || NR%200==0' run_noshear_n1000_g4/cfl.dat 2>/dev/null | head -10
+echo "DET_GALLOPE_DONE"

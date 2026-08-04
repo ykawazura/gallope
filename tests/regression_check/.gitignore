@@ -1,0 +1,11 @@
+# Regression archive: track only the run definition, the stdout logs, and the
+# report. Everything else -- rms.dat / cfl.dat / gallope.modes.out, the PBS
+# job-output files, the generated figure and the plot script -- is reproducible
+# and stays untracked (mirrors tests/Meyrand19_test_lowres/.gitignore).
+*
+!.gitignore
+!README.md
+!*/
+!*/gallope.in
+!*/job.pbs-regress
+!*/out.std

@@ -1,0 +1,522 @@
+############ noshear  nstep=1  gallope(4 GPU) vs calliope
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_noshear_n1_g4  [gallope]
+B = ../rc/run_noshear_n1_c16  [calliope]
+
+-- restart time (tt, tsc) --
+  A: [0.001, 0.001]
+  B: [0.001, 0.001]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 8.347e-31   <|k.b|>/(<|k|><|b|>) = 3.394e-28
+  B: <|k.u|>/(<|k|><|u|>) = 4.219e-28   <|k.b|>/(<|k|><|b|>) = 3.403e-28
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 1.989341e-16   max|df|/max|f| 5.009836e-17
+  uy: L2 1.978606e-16   max|df|/max|f| 6.250081e-17
+  uz: L2 2.603665e-15   max|df|/max|f| 2.447962e-16
+  bx: L2 1.989330e-16   max|df|/max|f| 5.009852e-17
+  by: L2 1.873711e-16   max|df|/max|f| 6.598238e-17
+  bz: L2 4.022906e-14   max|df|/max|f| 1.959310e-15
+  all six fields combined: 1.958366e-16
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 9.999999999990549e-01
+  B: 9.999999999990549e-01
+  relative difference: 0.000000e+00
+
+############ noshear  nstep=1  gallope 1 GPU vs 4 GPU [control]
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_noshear_n1_g1  [gallope]
+B = ./run_noshear_n1_g4  [gallope]
+
+-- restart time (tt, tsc) --
+  A: [0.001, 0.001]
+  B: [0.001, 0.001]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 8.347e-31   <|k.b|>/(<|k|><|b|>) = 3.394e-28
+  B: <|k.u|>/(<|k|><|u|>) = 8.347e-31   <|k.b|>/(<|k|><|b|>) = 3.394e-28
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uy: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bx: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  by: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  all six fields combined: 0.000000e+00
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 9.999999999990549e-01
+  B: 9.999999999990549e-01
+  relative difference: 0.000000e+00
+
+############ noshear  nstep=10  gallope(4 GPU) vs calliope
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_noshear_n10_g4  [gallope]
+B = ../rc/run_noshear_n10_c16  [calliope]
+
+-- restart time (tt, tsc) --
+  A: [0.010000000000000002, 0.010000000000000002]
+  B: [0.010000000000000002, 0.010000000000000002]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 6.009e-29   <|k.b|>/(<|k|><|b|>) = 4.725e-27
+  B: <|k.u|>/(<|k|><|u|>) = 7.134e-29   <|k.b|>/(<|k|><|b|>) = 4.386e-27
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 2.003898e-16   max|df|/max|f| 5.009615e-17
+  uy: L2 1.999358e-16   max|df|/max|f| 6.249274e-17
+  uz: L2 1.061169e-15   max|df|/max|f| 3.905478e-16
+  bx: L2 2.004176e-16   max|df|/max|f| 5.009629e-17
+  by: L2 1.900221e-16   max|df|/max|f| 6.590439e-17
+  bz: L2 2.357799e-14   max|df|/max|f| 2.270660e-15
+  all six fields combined: 1.977629e-16
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 9.999999999905484e-01
+  B: 9.999999999905484e-01
+  relative difference: 0.000000e+00
+
+############ noshear  nstep=10  gallope 1 GPU vs 4 GPU [control]
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_noshear_n10_g1  [gallope]
+B = ./run_noshear_n10_g4  [gallope]
+
+-- restart time (tt, tsc) --
+  A: [0.010000000000000002, 0.010000000000000002]
+  B: [0.010000000000000002, 0.010000000000000002]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 6.009e-29   <|k.b|>/(<|k|><|b|>) = 4.725e-27
+  B: <|k.u|>/(<|k|><|u|>) = 6.009e-29   <|k.b|>/(<|k|><|b|>) = 4.725e-27
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uy: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bx: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  by: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  all six fields combined: 0.000000e+00
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 9.999999999905484e-01
+  B: 9.999999999905484e-01
+  relative difference: 0.000000e+00
+
+############ noshear  nstep=100  gallope(4 GPU) vs calliope
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_noshear_n100_g4  [gallope]
+B = ../rc/run_noshear_n100_c16  [calliope]
+
+-- restart time (tt, tsc) --
+  A: [0.10000000000000007, 0.10000000000000007]
+  B: [0.10000000000000007, 0.10000000000000007]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 5.528e-26   <|k.b|>/(<|k|><|b|>) = 1.428e-26
+  B: <|k.u|>/(<|k|><|u|>) = 5.704e-26   <|k.b|>/(<|k|><|b|>) = 2.058e-26
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 2.647181e-16   max|df|/max|f| 5.802120e-17
+  uy: L2 2.573392e-16   max|df|/max|f| 6.190574e-17
+  uz: L2 9.085144e-16   max|df|/max|f| 9.537681e-16
+  bx: L2 2.630122e-16   max|df|/max|f| 5.940922e-17
+  by: L2 2.661250e-16   max|df|/max|f| 8.468612e-17
+  bz: L2 8.758024e-15   max|df|/max|f| 1.262926e-14
+  all six fields combined: 2.644458e-16
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 9.999999999054061e-01
+  B: 9.999999999054061e-01
+  relative difference: 0.000000e+00
+
+############ noshear  nstep=100  gallope 1 GPU vs 4 GPU [control]
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_noshear_n100_g1  [gallope]
+B = ./run_noshear_n100_g4  [gallope]
+
+-- restart time (tt, tsc) --
+  A: [0.10000000000000007, 0.10000000000000007]
+  B: [0.10000000000000007, 0.10000000000000007]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 5.528e-26   <|k.b|>/(<|k|><|b|>) = 1.428e-26
+  B: <|k.u|>/(<|k|><|u|>) = 5.528e-26   <|k.b|>/(<|k|><|b|>) = 1.428e-26
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uy: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bx: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  by: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  all six fields combined: 0.000000e+00
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 9.999999999054061e-01
+  B: 9.999999999054061e-01
+  relative difference: 0.000000e+00
+
+############ noshear  nstep=1000  gallope(4 GPU) vs calliope
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_noshear_n1000_g4  [gallope]
+B = ../rc/run_noshear_n1000_c16  [calliope]
+
+-- restart time (tt, tsc) --
+  A: [1.0000000000000007, 1.0000000000000007]
+  B: [1.0000000000000007, 1.0000000000000007]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 1.477e-24   <|k.b|>/(<|k|><|b|>) = 1.512e-24
+  B: <|k.u|>/(<|k|><|u|>) = 1.452e-24   <|k.b|>/(<|k|><|b|>) = 1.526e-24
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 1.131146e-15   max|df|/max|f| 3.911294e-16
+  uy: L2 2.005943e-15   max|df|/max|f| 2.202188e-15
+  uz: L2 1.458480e-15   max|df|/max|f| 1.061409e-15
+  bx: L2 1.098546e-15   max|df|/max|f| 4.235891e-16
+  by: L2 1.761961e-15   max|df|/max|f| 1.314923e-15
+  bz: L2 2.377332e-15   max|df|/max|f| 1.432616e-15
+  all six fields combined: 1.551102e-15
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 9.999998580217124e-01
+  B: 9.999998580217129e-01
+  relative difference: 4.440893e-16
+
+############ noshear  nstep=1000  gallope 1 GPU vs 4 GPU [control]
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_noshear_n1000_g1  [gallope]
+B = ./run_noshear_n1000_g4  [gallope]
+
+-- restart time (tt, tsc) --
+  A: [1.0000000000000007, 1.0000000000000007]
+  B: [1.0000000000000007, 1.0000000000000007]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 1.477e-24   <|k.b|>/(<|k|><|b|>) = 1.512e-24
+  B: <|k.u|>/(<|k|><|u|>) = 1.477e-24   <|k.b|>/(<|k|><|b|>) = 1.512e-24
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uy: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bx: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  by: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  all six fields combined: 0.000000e+00
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 9.999998580217124e-01
+  B: 9.999998580217124e-01
+  relative difference: 0.000000e+00
+
+############ shear  nstep=1  gallope(4 GPU) vs calliope
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n1_g4  [gallope]
+B = ../rc/run_shear_n1_c16  [calliope]
+
+-- restart time (tt, tsc) --
+  A: [0.001, 0.001]
+  B: [0.001, 0.001]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 1.262e-27   <|k.b|>/(<|k|><|b|>) = 1.364e-27  [kx(t) = kx + 1.5*0.001*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 8.407e-28   <|k.b|>/(<|k|><|b|>) = 1.690e-27  [kx(t) = kx + 1.5*0.001*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 1.989312e-16   max|df|/max|f| 5.009798e-17
+  uy: L2 1.978750e-16   max|df|/max|f| 6.250087e-17
+  uz: L2 1.135481e-15   max|df|/max|f| 1.086147e-16
+  bx: L2 1.989316e-16   max|df|/max|f| 5.009813e-17
+  by: L2 1.873781e-16   max|df|/max|f| 6.598187e-17
+  bz: L2 1.132785e-13   max|df|/max|f| 1.925310e-13
+  all six fields combined: 1.958408e-16
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 1.000000562596715e+00
+  B: 1.000000562596715e+00
+  relative difference: 0.000000e+00
+
+############ shear  nstep=1  gallope 1 GPU vs 4 GPU [control]
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n1_g1  [gallope]
+B = ./run_shear_n1_g4  [gallope]
+
+-- restart time (tt, tsc) --
+  A: [0.001, 0.001]
+  B: [0.001, 0.001]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 1.262e-27   <|k.b|>/(<|k|><|b|>) = 1.364e-27  [kx(t) = kx + 1.5*0.001*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 1.262e-27   <|k.b|>/(<|k|><|b|>) = 1.364e-27  [kx(t) = kx + 1.5*0.001*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uy: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bx: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  by: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  all six fields combined: 0.000000e+00
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 1.000000562596715e+00
+  B: 1.000000562596715e+00
+  relative difference: 0.000000e+00
+
+############ shear  nstep=10  gallope(4 GPU) vs calliope
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n10_g4  [gallope]
+B = ../rc/run_shear_n10_c16  [calliope]
+
+-- restart time (tt, tsc) --
+  A: [0.010000000000000002, 0.010000000000000002]
+  B: [0.010000000000000002, 0.010000000000000002]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 6.864e-27   <|k.b|>/(<|k|><|b|>) = 1.306e-26  [kx(t) = kx + 1.5*0.01*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 6.778e-27   <|k.b|>/(<|k|><|b|>) = 8.999e-27  [kx(t) = kx + 1.5*0.01*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 2.003850e-16   max|df|/max|f| 5.009733e-17
+  uy: L2 2.002525e-16   max|df|/max|f| 6.249080e-17
+  uz: L2 4.641269e-16   max|df|/max|f| 5.930012e-17
+  bx: L2 2.004584e-16   max|df|/max|f| 5.009487e-17
+  by: L2 1.898498e-16   max|df|/max|f| 6.591274e-17
+  bz: L2 1.886564e-14   max|df|/max|f| 1.942392e-14
+  all six fields combined: 1.978066e-16
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 1.000056354177122e+00
+  B: 1.000056354177122e+00
+  relative difference: 0.000000e+00
+
+############ shear  nstep=10  gallope 1 GPU vs 4 GPU [control]
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n10_g1  [gallope]
+B = ./run_shear_n10_g4  [gallope]
+
+-- restart time (tt, tsc) --
+  A: [0.010000000000000002, 0.010000000000000002]
+  B: [0.010000000000000002, 0.010000000000000002]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 6.864e-27   <|k.b|>/(<|k|><|b|>) = 1.306e-26  [kx(t) = kx + 1.5*0.01*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 6.864e-27   <|k.b|>/(<|k|><|b|>) = 1.306e-26  [kx(t) = kx + 1.5*0.01*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uy: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bx: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  by: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  all six fields combined: 0.000000e+00
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 1.000056354177122e+00
+  B: 1.000056354177122e+00
+  relative difference: 0.000000e+00
+
+############ shear  nstep=100  gallope(4 GPU) vs calliope
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n100_g4  [gallope]
+B = ../rc/run_shear_n100_c16  [calliope]
+
+-- restart time (tt, tsc) --
+  A: [0.10000000000000007, 0.10000000000000007]
+  B: [0.10000000000000007, 0.10000000000000007]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 1.540e-25   <|k.b|>/(<|k|><|b|>) = 1.239e-25  [kx(t) = kx + 1.5*0.1*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 1.455e-25   <|k.b|>/(<|k|><|b|>) = 1.394e-25  [kx(t) = kx + 1.5*0.1*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 2.618465e-16   max|df|/max|f| 5.788808e-17
+  uy: L2 2.571048e-16   max|df|/max|f| 6.085668e-17
+  uz: L2 3.386765e-16   max|df|/max|f| 2.807608e-16
+  bx: L2 2.644516e-16   max|df|/max|f| 6.039933e-17
+  by: L2 2.563604e-16   max|df|/max|f| 6.159811e-17
+  bz: L2 3.968443e-15   max|df|/max|f| 1.235068e-15
+  all six fields combined: 2.605155e-16
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 1.005787203142701e+00
+  B: 1.005787203142701e+00
+  relative difference: 0.000000e+00
+
+############ shear  nstep=100  gallope 1 GPU vs 4 GPU [control]
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n100_g1  [gallope]
+B = ./run_shear_n100_g4  [gallope]
+
+-- restart time (tt, tsc) --
+  A: [0.10000000000000007, 0.10000000000000007]
+  B: [0.10000000000000007, 0.10000000000000007]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 1.540e-25   <|k.b|>/(<|k|><|b|>) = 1.239e-25  [kx(t) = kx + 1.5*0.1*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 1.540e-25   <|k.b|>/(<|k|><|b|>) = 1.239e-25  [kx(t) = kx + 1.5*0.1*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uy: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bx: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  by: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  all six fields combined: 0.000000e+00
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 1.005787203142701e+00
+  B: 1.005787203142701e+00
+  relative difference: 0.000000e+00
+
+############ shear  nstep=1000  gallope(4 GPU) vs calliope
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n1000_g4  [gallope]
+B = ../rc/run_shear_n1000_c16  [calliope]
+
+-- restart time (tt, tsc) --
+  A: [1.0000000000000007, 0.33300000000000024]
+  B: [1.0000000000000007, 0.33300000000000024]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 1.600e-24   <|k.b|>/(<|k|><|b|>) = 1.371e-24  [kx(t) = kx + 1.5*0.333*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 1.500e-24   <|k.b|>/(<|k|><|b|>) = 1.157e-24  [kx(t) = kx + 1.5*0.333*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 9.833187e-16   max|df|/max|f| 2.622692e-16
+  uy: L2 1.558724e-15   max|df|/max|f| 5.165345e-16
+  uz: L2 1.155794e-15   max|df|/max|f| 7.382988e-16
+  bx: L2 1.158906e-15   max|df|/max|f| 4.370877e-16
+  by: L2 1.532672e-15   max|df|/max|f| 1.181871e-15
+  bz: L2 2.441732e-15   max|df|/max|f| 3.184547e-15
+  all six fields combined: 1.402888e-15
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 1.817464805190639e+00
+  B: 1.817464805190638e+00
+  relative difference: 2.443454e-16
+
+############ shear  nstep=1000  gallope 1 GPU vs 4 GPU [control]
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n1000_g1  [gallope]
+B = ./run_shear_n1000_g4  [gallope]
+
+-- restart time (tt, tsc) --
+  A: [1.0000000000000007, 0.33300000000000024]
+  B: [1.0000000000000007, 0.33300000000000024]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 1.600e-24   <|k.b|>/(<|k|><|b|>) = 1.371e-24  [kx(t) = kx + 1.5*0.333*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 1.600e-24   <|k.b|>/(<|k|><|b|>) = 1.371e-24  [kx(t) = kx + 1.5*0.333*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uy: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bx: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  by: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  all six fields combined: 0.000000e+00
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 1.817464805190639e+00
+  B: 1.817464805190639e+00
+  relative difference: 0.000000e+00
+
+############ shear  nstep=2000  gallope(4 GPU) vs calliope
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n2000_g4  [gallope]
+B = ../rc/run_shear_n2000_c16  [calliope]
+
+-- restart time (tt, tsc) --
+  A: [1.9999999999998905, 0.6660000000000005]
+  B: [1.9999999999998905, 0.6660000000000005]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 6.594e-24   <|k.b|>/(<|k|><|b|>) = 6.235e-24  [kx(t) = kx + 1.5*0.666*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 6.191e-24   <|k.b|>/(<|k|><|b|>) = 5.835e-24  [kx(t) = kx + 1.5*0.666*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 5.212995e-14   max|df|/max|f| 2.872592e-15
+  uy: L2 3.218765e-14   max|df|/max|f| 4.239474e-15
+  uz: L2 4.646038e-14   max|df|/max|f| 2.256596e-15
+  bx: L2 3.500121e-14   max|df|/max|f| 2.263308e-15
+  by: L2 1.168457e-14   max|df|/max|f| 1.917960e-15
+  bz: L2 5.267855e-14   max|df|/max|f| 5.510770e-15
+  all six fields combined: 2.678303e-14
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 4.178023193627737e+00
+  B: 4.178023193627734e+00
+  relative difference: 8.503336e-16
+
+############ shear  nstep=2000  gallope 1 GPU vs 4 GPU [control]
+grid 128 x 128 x 128, box (2pi*1.0, 2pi*1.0, 2pi*1.0)
+A = ./run_shear_n2000_g1  [gallope]
+B = ./run_shear_n2000_g4  [gallope]
+
+-- restart time (tt, tsc) --
+  A: [1.9999999999998905, 0.6660000000000005]
+  B: [1.9999999999998905, 0.6660000000000005]
+  |tt_A - tt_B| = 0.000e+00  (OK)
+
+-- solenoidal error on the reconstructed cube --
+   (must be at roundoff; an O(1) value means the axis mapping is wrong)
+  A: <|k.u|>/(<|k|><|u|>) = 6.594e-24   <|k.b|>/(<|k|><|b|>) = 6.235e-24  [kx(t) = kx + 1.5*0.666*ky]
+  B: <|k.u|>/(<|k|><|u|>) = 6.594e-24   <|k.b|>/(<|k|><|b|>) = 6.235e-24  [kx(t) = kx + 1.5*0.666*ky]
+
+-- relative field difference, ||f_A - f_B||_2 / ||f_B||_2 --
+  ux: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uy: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  uz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bx: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  by: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  bz: L2 0.000000e+00   max|df|/max|f| 0.000000e+00
+  all six fields combined: 0.000000e+00
+
+-- energy W = 0.5<|u|^2+|b|^2> from the spectral fields --
+  A: 4.178023193627737e+00
+  B: 4.178023193627737e+00
+  relative difference: 0.000000e+00
+

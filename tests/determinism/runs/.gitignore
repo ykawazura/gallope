@@ -1,0 +1,30 @@
+# Archive of the runs behind ../README.md, copied from Miyabi-G
+# (~/work/determinism) before the machine was decommissioned.
+#
+# Tracked here: the run definitions, the job scripts, the PBS/stdout logs,
+# the comparison results, and the exact analysis scripts that produced them
+# -- everything needed to read what was done and what came out.
+#
+# Not tracked: rms.dat and cfl.dat.  They are kept in this directory (and so
+# are backed up by Dropbox) but they are bulk time series, not evidence, and
+# they do not belong in the repository.  The field data the comparison
+# actually operates on (restart/*.dat, ~100 MB per run) was deliberately not
+# copied from Miyabi; the verdicts it produced live in compare_all_fixed.out,
+# probe_all_fixed.out and rmhd/compare_rmhd.out.
+#
+# The comparison results are re-included by name, not as *.out, so that
+# <code>.modes.out -- a 3 MB per-step mode dump that no script here reads --
+# cannot be pulled back in by the pattern.
+*
+!*/
+__pycache__/
+!.gitignore
+!README.md
+!*.in
+!job.pbs-*
+!out.std
+!compare_*.out
+!probe_*.out
+!*.o[0-9]*
+!*.py
+!*.sh
