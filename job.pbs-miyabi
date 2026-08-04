@@ -1,24 +1,25 @@
-#!/bin/sh -l 
-
-#------ qsub option --------# 
-#PBS -q regular-g
-#PBS -l select=16:mpiprocs=1
-#PBS -l walltime=10:00:00 
-#PBS -W group_list=gr96 
+#!/bin/sh -l
+#------ qsub option --------#
+#PBS -q debug-g
+#PBS -l select=4:mpiprocs=1
+#PBS -l walltime=00:30:00
+#PBS -W group_list=gr96
 #PBS -j oe
+#PBS -N gpb_imb
 
-#------- Program execution -------# 
+#=====================================================================
+#  MID-RESOLUTION KRMHD imbalanced run (64^2 x 32, nm=32, np=4).
+#  Fresh ZERO-IC start (init_type='zero' in gallope.in). Same physics
+#  and grid as Meyrand19_balanced, only xhl_inj raised 0 -> 0.8.
+#  debug-g queue (4 nodes, <=30 min); the run self-checkpoints at
+#  max_wall_time=0.45h to ./restart/ for subsequent restart segments.
+#=====================================================================
+#------- Program execution -------#
 module load nvidia
 module load nv-hpcx
 module load hdf5
 module load netcdf
 module load netcdf-fortran
 
-cd ${PBS_O_WORKDIR} 
-mpirun ./gallope <gallope.in >gallope.out.std
-
-#mpirun -np 1 nsys profile -t cuda,nvtx,openacc,mpi \
-#  --stats=true \
-#  -f true \
-#  -o my_report_%q{OMPI_COMM_WORLD_RANK} \
-#  ./gallope <gallope.in >gallope.out.std
+cd ${PBS_O_WORKDIR}
+mpirun -np 4 ./gallope <gallope.in >out.std

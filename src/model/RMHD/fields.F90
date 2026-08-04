@@ -61,9 +61,9 @@ contains
     if(init_type == 'OT2') then
       call init_OT2
     endif
-    ! if(init_type == 'OT3') then
-    !   call init_OT3
-    ! endif
+    if(init_type == 'OT3') then
+      call init_OT3
+    endif
     ! if(init_type == 'KH') then
     !   call init_KH
     ! endif
@@ -297,7 +297,7 @@ contains
 !! @brief   2D Orszag Tang problem initialization
 !-----------------------------------------------!
   subroutine init_OT2
-    use grid, only: xx, yy
+    use grid, only: xx, yy, kprp2
     use grid, only: nlx, nlx_local, nly, nlz_padded
     use grid, only: nkx, nky_local, nkz
     use grid, only: ntot
@@ -334,13 +334,14 @@ contains
     call ftran_r2c(phi_r, phi)
     call ftran_r2c(psi_r, psi)
   
-    !$acc data present(phi, psi)
+    !$acc data present(phi, omg, psi, kprp2)
     !$acc parallel loop collapse(3)
     do i = 1, nkx
       do j = 1, nky_local
         do k = 1, nkz
           phi(k,j,i) = phi(k,j,i)/ntot
           psi(k,j,i) = psi(k,j,i)/ntot
+          omg(k,j,i) = phi(k,j,i)*(-kprp2(k,j,i))
         enddo
       enddo
     enddo
@@ -365,6 +366,103 @@ contains
     deallocate(psi_r)
 
   end subroutine init_OT2
+
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   3D Orszag Tang problem initialization
+!-----------------------------------------------!
+  subroutine init_OT3
+    use grid, only: lx, ly, lz, xx, yy, zz, kprp2
+    use grid, only: nlx_local, nly, nlz, nlz_padded
+    use grid, only: nkx, nky_local, nkz
+    use grid, only: ntot
+    use mp, only: proc0
+    use params, only: pi
+    use cuFFTmp, only: ftran_r2c
+    implicit none
+    real(8), allocatable, dimension(:,:,:) :: phi_r, psi_r
+    real(8), allocatable, dimension(:,:,:) :: src
+    real(8) :: x0, y0, z0
+    integer :: i, j, k
+
+    if(proc0) then
+      print *, 'OT3 initialization'
+    endif
+
+    x0 = lx/(2.d0*pi)
+    y0 = ly/(2.d0*pi)
+    z0 = lz/(2.d0*pi)
+
+    allocate(src(nlz_padded, nly, nlx_local), source=0.d0)
+    allocate(phi_r, source=src)
+    allocate(psi_r, source=src)
+    deallocate(src)
+    !$acc enter data create(phi_r)
+    !$acc enter data create(psi_r)
+
+    ! Transcribed verbatim from Calliope's RMHD init_OT3
+    ! (calliope_dev/src/model/RMHD/fields.F90), including the yy(j)/x0 in the
+    ! second psi term, where y0 was evidently intended. It is kept as it stands
+    ! because the two codes must start from bit-identical fields for the
+    ! deterministic comparison to mean anything; correcting one side alone
+    ! would break it. The test runs with lx = ly, so the two are equal there.
+    !
+    ! zz is dimensioned nlz, so the fill must stop at nlz; the remaining
+    ! nlz_padded - nlz slots are the in-place r2c padding and are zeroed.
+    !$acc parallel loop collapse(3)
+    do i = 1, nlx_local
+      do j = 1, nly
+        do k = 1, nlz_padded
+          if (k <= nlz) then
+            phi_r(k, j, i) = -(cos(xx(i)/x0 + 1.4d0 + zz(k)/z0) &
+                             + cos(yy(j)/y0 + 0.5d0 + zz(k)/z0))
+            psi_r(k, j, i) = -(0.5d0*cos(2.d0*(xx(i)/x0) + 2.3d0 + zz(k)/z0) &
+                             + cos(yy(j)/x0 + 4.1d0 + zz(k)/z0))
+          else
+            phi_r(k, j, i) = 0.d0
+            psi_r(k, j, i) = 0.d0
+          endif
+        end do
+      end do
+    end do
+
+    ! compute r2c transform
+    call ftran_r2c(phi_r, phi)
+    call ftran_r2c(psi_r, psi)
+
+    !$acc data present(phi, omg, psi, kprp2)
+    !$acc parallel loop collapse(3)
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          phi(k,j,i) = phi(k,j,i)/ntot
+          psi(k,j,i) = psi(k,j,i)/ntot
+          omg(k,j,i) = phi(k,j,i)*(-kprp2(k,j,i))
+        enddo
+      enddo
+    enddo
+    !$acc end data
+
+    !$acc data present(phi, omg, psi, phi_old, omg_old, psi_old)
+    !$acc parallel loop collapse(3)
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          phi_old(k, j, i) = phi(k, j, i)
+          omg_old(k, j, i) = omg(k, j, i)
+          psi_old(k, j, i) = psi(k, j, i)
+        enddo
+      enddo
+    enddo
+    !$acc end data
+
+    !$acc exit data delete(phi_r)
+    !$acc exit data delete(psi_r)
+    deallocate(phi_r)
+    deallocate(psi_r)
+
+  end subroutine init_OT3
 
 
 !-----------------------------------------------!

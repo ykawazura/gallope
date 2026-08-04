@@ -80,9 +80,9 @@ contains
     if(init_type == 'OT2') then
       call init_OT2
     endif
-    ! if(init_type == 'OT3') then
-    !   call init_OT3
-    ! endif
+    if(init_type == 'OT3') then
+      call init_OT3
+    endif
     ! if(init_type == 'KH') then
     !   call init_KH
     ! endif
@@ -694,10 +694,9 @@ contains
     enddo
     !$acc end data
 
-    !$acc update host(ux, uy, uz, bx, by, bz)
     call is_div_free('u', ux, uy, uz)
     call is_div_free('b', bx, by, bz)
-    
+
     !$acc exit data delete(ux_r)
     !$acc exit data delete(uy_r)
     !$acc exit data delete(uz_r)
@@ -811,11 +810,112 @@ contains
 
 !-----------------------------------------------!
 !> @author  YK
+!! @date    18 Feb 2021
+!! @brief   3D Orszag Tang problem initialization
+!-----------------------------------------------!
+  subroutine init_OT3
+    use grid, only: xx, yy, zz
+    use grid, only: nlx_local, nly, nlz, nlz_padded
+    use grid, only: nkx, nky_local, nkz
+    use grid, only: ntot
+    use mp, only: proc0
+    use cuFFTmp, only: ftran_r2c
+    implicit none
+    real(8), allocatable, dimension(:,:,:) :: ux_r, uy_r, bx_r, by_r
+    real(8), allocatable, dimension(:,:,:) :: src
+    integer :: i, j, k
+
+    if(proc0) then
+      print *, 'OT3 initialization'
+    endif
+
+    allocate(src(nlz_padded, nly, nlx_local), source=0.d0)
+    allocate(ux_r, source=src)
+    allocate(uy_r, source=src)
+    allocate(bx_r, source=src)
+    allocate(by_r, source=src)
+    deallocate(src)
+    !$acc enter data create(ux_r)
+    !$acc enter data create(uy_r)
+    !$acc enter data create(bx_r)
+    !$acc enter data create(by_r)
+
+    ! zz is dimensioned nlz, so the fill must stop at nlz; the remaining
+    ! nlz_padded - nlz slots are the in-place r2c padding and are zeroed.
+    !$acc parallel loop collapse(3)
+    do i = 1, nlx_local
+      do j = 1, nly
+        do k = 1, nlz_padded
+          if (k <= nlz) then
+            ux_r(k, j, i) = -sin(yy(j) + zz(k))
+            uy_r(k, j, i) =  sin(xx(i) + zz(k))
+            bx_r(k, j, i) = -sin(yy(j) + zz(k))
+            by_r(k, j, i) =  sin(2.d0*xx(i) + zz(k))
+          else
+            ux_r(k, j, i) = 0.d0
+            uy_r(k, j, i) = 0.d0
+            bx_r(k, j, i) = 0.d0
+            by_r(k, j, i) = 0.d0
+          endif
+        end do
+      end do
+    end do
+
+    ! compute r2c transform
+    call ftran_r2c(ux_r, ux)
+    call ftran_r2c(uy_r, uy)
+    call ftran_r2c(bx_r, bx)
+    call ftran_r2c(by_r, by)
+
+    !$acc parallel loop collapse(3)
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          ux(k, j, i) = ux(k, j, i) / ntot
+          uy(k, j, i) = uy(k, j, i) / ntot
+          bx(k, j, i) = bx(k, j, i) / ntot
+          by(k, j, i) = by(k, j, i) / ntot
+        end do
+      end do
+    end do
+
+    !$acc parallel loop collapse(3)
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          ux_old(k,j,i) = ux(k,j,i)
+          uy_old(k,j,i) = uy(k,j,i)
+          uz_old(k,j,i) = uz(k,j,i)
+          bx_old(k,j,i) = bx(k,j,i)
+          by_old(k,j,i) = by(k,j,i)
+          bz_old(k,j,i) = bz(k,j,i)
+        enddo
+      enddo
+    enddo
+
+    !$acc exit data delete(ux_r)
+    !$acc exit data delete(uy_r)
+    !$acc exit data delete(bx_r)
+    !$acc exit data delete(by_r)
+    deallocate(ux_r)
+    deallocate(uy_r)
+    deallocate(bx_r)
+    deallocate(by_r)
+
+    ! check div free of u and b
+    call is_div_free('u', ux, uy, uz)
+    call is_div_free('b', bx, by, bz)
+
+  end subroutine init_OT3
+
+
+!-----------------------------------------------!
+!> @author  YK
 !! @date    29 Dec 2018
 !! @brief   Restart
 !-----------------------------------------------!
   subroutine restart
-    use mp, only: proc0, proc_id
+    use mp, only: proc0, proc_id, comm_fft
     use time, only: tt, dt
     use grid, only: nkx, nky, nky_local, nkz
     use params, only: restart_dir
@@ -854,12 +954,12 @@ contains
     starts(2) = nky_local*proc_id
     starts(3) = 0
 
-    call mpiio_read_one(ux, sizes, subsizes, starts, trim(restart_dir)//'ux.dat')
-    call mpiio_read_one(uy, sizes, subsizes, starts, trim(restart_dir)//'uy.dat')
-    call mpiio_read_one(uz, sizes, subsizes, starts, trim(restart_dir)//'uz.dat')
-    call mpiio_read_one(bx, sizes, subsizes, starts, trim(restart_dir)//'bx.dat')
-    call mpiio_read_one(by, sizes, subsizes, starts, trim(restart_dir)//'by.dat')
-    call mpiio_read_one(bz, sizes, subsizes, starts, trim(restart_dir)//'bz.dat')
+    call mpiio_read_one(ux, sizes, subsizes, starts, trim(restart_dir)//'ux.dat', comm_fft)
+    call mpiio_read_one(uy, sizes, subsizes, starts, trim(restart_dir)//'uy.dat', comm_fft)
+    call mpiio_read_one(uz, sizes, subsizes, starts, trim(restart_dir)//'uz.dat', comm_fft)
+    call mpiio_read_one(bx, sizes, subsizes, starts, trim(restart_dir)//'bx.dat', comm_fft)
+    call mpiio_read_one(by, sizes, subsizes, starts, trim(restart_dir)//'by.dat', comm_fft)
+    call mpiio_read_one(bz, sizes, subsizes, starts, trim(restart_dir)//'bz.dat', comm_fft)
 
     ux_old = ux
     uy_old = uy
@@ -930,6 +1030,12 @@ contains
     integer :: i, j, k
     complex(8), dimension(:,:,:), intent(in) :: fx, fy, fz
     real(8) :: abs_div_f_sum, abs_f_sum, abs_k_sum
+
+    ! The loop below runs on the host, but the fields live on the device
+    ! between kernels.  Refresh here rather than at the call sites: two of
+    ! the three callers used to omit it and printed NaN from uninitialized
+    ! host memory.
+    !$acc update host(fx, fy, fz)
 
     abs_div_f_sum  = 0.d0
     abs_f_sum      = 0.d0
