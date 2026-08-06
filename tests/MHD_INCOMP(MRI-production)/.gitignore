@@ -2,13 +2,14 @@
 #
 # Tracked: the run definition, the job script, the stdout log and this README.
 # Untracked but present in the directory (Dropbox-backed): rms.dat, cfl.dat,
-# the NetCDF diagnostics output and the figures generated from it.  This
-# follows tests/MHD_INCOMP(MRI)/.gitignore -- the output is reproducible from
-# the input, and gallope.out.nc alone is larger than everything the repository
-# tracks for this run.
+# the NetCDF diagnostics output, the final out2d/ snapshot and the figures
+# generated from them.  This follows tests/MHD_INCOMP(MRI)/.gitignore -- the
+# output is reproducible from the input, and gallope.out.nc alone is larger
+# than everything the repository tracks for this run.
 #
-# Deliberately not copied from Miyabi at all: restart/ (3.1 GB), out2d/
-# (8.0 GB of 2D cuts and spectra) and gallope.modes.out (2.1 GB).
+# Deliberately not copied from Miyabi at all: restart/ (3.1 GB),
+# gallope.modes.out (2.1 GB), and all but the last snapshot of out2d/ (10 GB
+# there, 48 MB here -- see README.md).
 *
 !*/
 __pycache__/
