@@ -196,6 +196,23 @@ Python visualization scripts are provided in the `diagnostics/` directory, org
 
 ---
 
+---
+
+## Where the paper's code is
+
+This is the development branch of the kinetic-RMHD (`KRMHD`) extension.  It is
+not the code *"Gallope: A Multi-GPU pseudospectral solver for magnetohydrodynamic
+models using the cuFFTMp library"* (COMPHY-D-26-00110) describes.
+
+That is `main` at tag
+**[`v1.0`](https://github.com/ykawazura/gallope/releases/tag/v1.0)**, which also
+carries `benchmarks/`: the raw stdout of every run behind Figures 1-5, the
+inputs and job scripts that produced it, the campaign drivers from both
+machines, the plotting scripts, and the frozen source tree the two scaling
+campaigns were actually built from.  The Section 5 comparison runs — Figures 6-8
+and Table 2 — are in
+**[ykawazura/gallope-calliope_comparison](https://github.com/ykawazura/gallope-calliope_comparison)**.
+
 ## Repository Structure
 
 ```Plaintext
