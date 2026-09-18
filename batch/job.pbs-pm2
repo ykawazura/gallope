@@ -1,0 +1,26 @@
+#!/bin/sh -l
+
+#------ qsub option --------#
+#PBS -q regular-g
+#PBS -l select=4:mpiprocs=1
+#PBS -l walltime=00:20:00
+#PBS -W group_list=gr96
+#PBS -j oe
+
+#------- Program execution -------#
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+cd ${PBS_O_WORKDIR}
+
+# Phase 0-A P_m=2 sanity: nproc=4, P_m=2 => comm_fft has 2 ranks. cuFFTMp now
+# attaches to a strict sub-communicator. Pass criterion = runs to completion
+# (physics is not yet correct until 0-B; output is not compared to P_m=1).
+mkdir -p restart_pm2
+mpirun ./gallope regress_pm2 <regress_pm2.in >pm2.std 2>&1
+
+echo "=== process grid ==="; grep -i "Process grid" pm2.std
+echo "=== completion ==="; tail -3 pm2.std

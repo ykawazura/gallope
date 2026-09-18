@@ -1,0 +1,242 @@
+
+  -------------------------------------------------------------------- 
+ |       _____          _      _      _____ ____  _____  ______       |
+ |      / ____|   /\   | |    | |    |_   _/ __ \|  __ \|  ____|      |
+ |     | |       /  \  | |    | |      | || |  | | |__) | |__         |
+ |     | |      / /\ \ | |    | |      | || |  | |  ___/|  __|        |
+ |     | |____ / ____ \| |____| |____ _| || |__| | |    | |____       |
+ |      \_____/_/    \_\______|______|_____\____/|_|    |______|      |
+ |                                                                    |
+ |                                     executed on 2026- 8- 2  1:15   |
+  -------------------------------------------------------------------- 
+
+ This run will be terminated when the wall time exceeds  0.40 hours.
+ This run will be terminated when a file named {terminate} is created in the root directory.
+
+nproc  =    160,  iproc  =     10,  jproc  =     16
+  nlx  =    512,    nly  =    512,    nlz  =    512
+  nlxc =    512,    nlyc =    512,    nlzc =    512
+ Using stride-1 layout
+ Using loop block sizes            2          40           2           1
+ Running on            1 threads
+
+P3DFFT initialization is done.
+Keep in mind that the array layouts are
+  u (*ily, ilz, ilx) for the real space,
+  uk(*ikx, ikz, iky) for the Fourier space.
+* means that the slot is local in each MPI proc.
+
+Solving MHD_INCOMP
+ Random initialization
+<|k. u|>/(<|k|><| u|>) =  8.123E-22
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+<|k. b|>/(<|k|><| b|>) =  2.346E-21
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+shear is on; tremap = 1.333
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+ Reading force_parameters failed
+----------------------------------------------------------------------------
+kx0*vA_x/Omega =  0.00,  ky0*vA_y/Omega =  0.00,  kz0*vA_z/Omega =  0.50
+  (vA is computed by the initial mean magnetic fields.)
+ Lx/lmd_MRI =  4.00,   Ly/lmd_MRI =  8.00,   Lz/lmd_MRI =  2.00
+  (lmd_MRI = 2pi*vA_z/Omega.)
+----------------------------------------------------------------------------
+Initialization done
+Starting the main loop...
+
+dt is decreased from  1.0000E-001  to  5.0000E-002
+
+
+dt is decreased from  5.0000E-002  to  2.5000E-002
+
+
+dt is decreased from  2.5000E-002  to  1.2500E-002
+
+
+ remapping...
+
+Finished the main loop :)
+ Finish save_restart
+ Finish loop_diagnostics
+ Finish loop_diagnostics_2D
+ Finish loop_diagnostics_3D
+ Finish loop_diagnostics_kpar
+ Finish loop_diagnostics_SF2
+ Finish loop_diagnostics_nltrans
+
+ Initialization             0.130 min    2.9 %
+ Advance steps              4.247 min   93.8 %
+    nonlinear terms         3.249 min   71.7 %  (76.5% in Advance steps)
+    FFT                     2.805 min   61.9 %  (66.0% in Advance steps)
+    force                   0.000 min    0.0 %  ( 0.0% in Advance steps)
+ Diagnostics                0.000 min    0.0 %
+    SF2                     0.000 min    0.0 %
+    kpar                    0.000 min    0.0 %
+    shell-to-shell trans    0.000 min    0.0 %
+ IO                         0.000 min    0.0 %
+    2D                      0.000 min    0.0 %
+    3D                      0.000 min    0.0 %
+ Save restart               0.149 min    3.3 %
+
+ total from timer is:       4.529 min
+ (init + adv + diag + io + restart:    100.0 %)
+
+ # of steps advanced         100
+            Final dt      1.250E-02

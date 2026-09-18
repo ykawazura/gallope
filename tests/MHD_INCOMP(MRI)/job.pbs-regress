@@ -1,0 +1,33 @@
+#!/bin/sh -l
+#PBS -q debug-g
+#PBS -l select=4:mpiprocs=1
+#PBS -l walltime=00:30:00
+#PBS -W group_list=gr96
+#PBS -j oe
+#PBS -N regress
+#=====================================================================
+#  KRMHD-extension regression run for an EXISTING model (RMHD / MHD_INCOMP).
+#  Self-contained: binary ./gallope and gallope.in live in this dir.
+#  No &parallelization namelist => P_m=P_s=1 => P_fft = np = 4.
+#=====================================================================
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+set -u
+cd ${PBS_O_WORKDIR}
+mkdir -p restart out2d out3d
+
+t0=$(date +%s)
+mpirun ./gallope <gallope.in >out.std 2>&1
+rc=$?
+t1=$(date +%s)
+
+echo "[regress] rc=${rc} wall=$((t1 - t0))s"
+echo "----- tail out.std -----"
+tail -40 out.std
+echo "----- tail rms.dat (energy time series) -----"
+tail -3 rms.dat 2>/dev/null || echo "(no rms.dat)"
+echo "REGRESS_DONE rc=${rc}"

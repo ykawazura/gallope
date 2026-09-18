@@ -1,0 +1,15 @@
+FC = mpif90
+
+P3DFFT_HOME=$(HOME)/work/.local/p3dfft.2
+P3DFFT_INC=-I$(P3DFFT_HOME)/include/
+P3DFFT_LIB=-L$(P3DFFT_HOME)/lib/ -lp3dfft
+
+FFTW3_HOME=/work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10
+FFTW3_INC=-I$(FFTW3_HOME)/include/
+FFTW3_LIB=-L$(FFTW3_HOME)/lib/ -lfftw3
+
+NETCDF_INC=-I$(NETCDF_DIR)/include -I$(NETCDF_FORTRAN_DIR)/include
+NETCDF_LIB=-L$(NETCDF_DIR)/lib -L$(NETCDF_FORTRAN_DIR)/lib -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -lz
+
+F90FLAGS = -Mpreprocess -Mextend
+LDFLAGS = 

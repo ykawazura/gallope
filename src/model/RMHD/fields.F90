@@ -16,6 +16,7 @@ module fields
   complex(8), allocatable, dimension(:,:,:) :: phi, omg, psi
   complex(8), allocatable, dimension(:,:,:) :: phi_old, omg_old, psi_old
   character(100) :: init_type
+  integer :: init_seed
 
   ! Field index
   integer, parameter :: nfields = 2
@@ -60,9 +61,9 @@ contains
     if(init_type == 'OT2') then
       call init_OT2
     endif
-    ! if(init_type == 'OT3') then
-    !   call init_OT3
-    ! endif
+    if(init_type == 'OT3') then
+      call init_OT3
+    endif
     ! if(init_type == 'KH') then
     !   call init_KH
     ! endif
@@ -89,7 +90,7 @@ contains
     character(len=100), intent(in) :: filename
     integer  :: unit, ierr
 
-    namelist /initial_condition/ init_type
+    namelist /initial_condition/ init_type, init_seed
 
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
     !v    used only when the corresponding value   v!
@@ -97,6 +98,10 @@ contains
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
 
     init_type = 'zero'
+    ! init_seed < 0 (default): non-reproducible random IC (system clock).
+    ! init_seed >= 0        : reproducible IC, required for redundant-solve
+    !                         consistency across comm_m/comm_s and for regression.
+    init_seed = -1
     !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^!
 
     call get_unused_unit (unit)
@@ -164,7 +169,7 @@ contains
     use grid, only: nkx, nky, nky_local, nkz
     use grid, only: kx, ky, kz, kprp2
     use grid, only: ntot
-    use mp, only: proc0, proc_id
+    use mp, only: proc0, iproc_fft, broadcast
     use time, only: microsleep
     use cuFFTmp, only: ftran_r2c, btran_c2r
     implicit none
@@ -186,17 +191,33 @@ contains
     !v             create random number            v!
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
     call random_seed(size=seedsize)
-    allocate(seed(seedsize)) 
+    allocate(seed(seedsize))
 
-    do i = 1, seedsize
-      call system_clock(count=seed(i))
-      call microsleep(1000)
-      call system_clock(count=seed(i))
-    end do
-    call random_seed(put=(proc_id+1)*seed(:)) 
+    ! Build the base seed once on proc0 and broadcast it over MPI_COMM_WORLD so
+    ! every rank shares it. Offsetting by (iproc_fft+1) makes ranks holding the
+    ! same slab (same iproc_fft) across redundant comm_m/comm_s groups draw an
+    ! identical random field, while distinct slabs still differ.
+    if (proc0) then
+      if (init_seed < 0) then
+        ! Legacy behaviour: non-reproducible seed from the system clock.
+        do i = 1, seedsize
+          call system_clock(count=seed(i))
+          call microsleep(1000)
+          call system_clock(count=seed(i))
+        end do
+      else
+        ! Reproducible seed for redundant-solve / regression testing.
+        do i = 1, seedsize
+          seed(i) = init_seed + i
+        end do
+      endif
+    endif
+    call broadcast(seed)
+    call random_seed(put=(iproc_fft+1)*seed(:))
 
     call random_number(phi_r)
     call random_number(psi_r)
+
     !$acc update device(phi_r)
     !$acc update device(psi_r)
     !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^!
@@ -276,7 +297,7 @@ contains
 !! @brief   2D Orszag Tang problem initialization
 !-----------------------------------------------!
   subroutine init_OT2
-    use grid, only: xx, yy
+    use grid, only: xx, yy, kprp2
     use grid, only: nlx, nlx_local, nly, nlz_padded
     use grid, only: nkx, nky_local, nkz
     use grid, only: ntot
@@ -313,13 +334,14 @@ contains
     call ftran_r2c(phi_r, phi)
     call ftran_r2c(psi_r, psi)
   
-    !$acc data present(phi, psi)
+    !$acc data present(phi, omg, psi, kprp2)
     !$acc parallel loop collapse(3)
     do i = 1, nkx
       do j = 1, nky_local
         do k = 1, nkz
           phi(k,j,i) = phi(k,j,i)/ntot
           psi(k,j,i) = psi(k,j,i)/ntot
+          omg(k,j,i) = phi(k,j,i)*(-kprp2(k,j,i))
         enddo
       enddo
     enddo
@@ -348,10 +370,107 @@ contains
 
 !-----------------------------------------------!
 !> @author  YK
+!! @brief   3D Orszag Tang problem initialization
+!-----------------------------------------------!
+  subroutine init_OT3
+    use grid, only: lx, ly, lz, xx, yy, zz, kprp2
+    use grid, only: nlx_local, nly, nlz, nlz_padded
+    use grid, only: nkx, nky_local, nkz
+    use grid, only: ntot
+    use mp, only: proc0
+    use params, only: pi
+    use cuFFTmp, only: ftran_r2c
+    implicit none
+    real(8), allocatable, dimension(:,:,:) :: phi_r, psi_r
+    real(8), allocatable, dimension(:,:,:) :: src
+    real(8) :: x0, y0, z0
+    integer :: i, j, k
+
+    if(proc0) then
+      print *, 'OT3 initialization'
+    endif
+
+    x0 = lx/(2.d0*pi)
+    y0 = ly/(2.d0*pi)
+    z0 = lz/(2.d0*pi)
+
+    allocate(src(nlz_padded, nly, nlx_local), source=0.d0)
+    allocate(phi_r, source=src)
+    allocate(psi_r, source=src)
+    deallocate(src)
+    !$acc enter data create(phi_r)
+    !$acc enter data create(psi_r)
+
+    ! Transcribed verbatim from Calliope's RMHD init_OT3
+    ! (calliope_dev/src/model/RMHD/fields.F90), including the yy(j)/x0 in the
+    ! second psi term, where y0 was evidently intended. It is kept as it stands
+    ! because the two codes must start from bit-identical fields for the
+    ! deterministic comparison to mean anything; correcting one side alone
+    ! would break it. The test runs with lx = ly, so the two are equal there.
+    !
+    ! zz is dimensioned nlz, so the fill must stop at nlz; the remaining
+    ! nlz_padded - nlz slots are the in-place r2c padding and are zeroed.
+    !$acc parallel loop collapse(3)
+    do i = 1, nlx_local
+      do j = 1, nly
+        do k = 1, nlz_padded
+          if (k <= nlz) then
+            phi_r(k, j, i) = -(cos(xx(i)/x0 + 1.4d0 + zz(k)/z0) &
+                             + cos(yy(j)/y0 + 0.5d0 + zz(k)/z0))
+            psi_r(k, j, i) = -(0.5d0*cos(2.d0*(xx(i)/x0) + 2.3d0 + zz(k)/z0) &
+                             + cos(yy(j)/x0 + 4.1d0 + zz(k)/z0))
+          else
+            phi_r(k, j, i) = 0.d0
+            psi_r(k, j, i) = 0.d0
+          endif
+        end do
+      end do
+    end do
+
+    ! compute r2c transform
+    call ftran_r2c(phi_r, phi)
+    call ftran_r2c(psi_r, psi)
+
+    !$acc data present(phi, omg, psi, kprp2)
+    !$acc parallel loop collapse(3)
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          phi(k,j,i) = phi(k,j,i)/ntot
+          psi(k,j,i) = psi(k,j,i)/ntot
+          omg(k,j,i) = phi(k,j,i)*(-kprp2(k,j,i))
+        enddo
+      enddo
+    enddo
+    !$acc end data
+
+    !$acc data present(phi, omg, psi, phi_old, omg_old, psi_old)
+    !$acc parallel loop collapse(3)
+    do i = 1, nkx
+      do j = 1, nky_local
+        do k = 1, nkz
+          phi_old(k, j, i) = phi(k, j, i)
+          omg_old(k, j, i) = omg(k, j, i)
+          psi_old(k, j, i) = psi(k, j, i)
+        enddo
+      enddo
+    enddo
+    !$acc end data
+
+    !$acc exit data delete(phi_r)
+    !$acc exit data delete(psi_r)
+    deallocate(phi_r)
+    deallocate(psi_r)
+
+  end subroutine init_OT3
+
+
+!-----------------------------------------------!
+!> @author  YK
 !! @brief   Restart
 !-----------------------------------------------!
   subroutine restart
-    use mp, only: proc0, proc_id
+    use mp, only: proc0, iproc_fft, comm_fft
     use time, only: tt, dt
     use grid, only: nkx, nky, nky_local, nkz
     use params, only: restart_dir
@@ -387,12 +506,15 @@ contains
     subsizes(2) = nky_local
     subsizes(3) = nkx
     starts(1) = 0
-    starts(2) = nky_local*proc_id
+    ! Offset by iproc_fft (field is decomposed along comm_fft only). Reads are
+    ! NOT gated: every comm_fft group reads the same file so each redundant
+    ! group loads an identical initial condition.
+    starts(2) = nky_local*iproc_fft
     starts(3) = 0
 
-    call mpiio_read_one(phi, sizes, subsizes, starts, trim(restart_dir)//'phi.dat')
-    call mpiio_read_one(omg, sizes, subsizes, starts, trim(restart_dir)//'omg.dat')
-    call mpiio_read_one(psi, sizes, subsizes, starts, trim(restart_dir)//'psi.dat')
+    call mpiio_read_one(phi, sizes, subsizes, starts, trim(restart_dir)//'phi.dat', comm_fft)
+    call mpiio_read_one(omg, sizes, subsizes, starts, trim(restart_dir)//'omg.dat', comm_fft)
+    call mpiio_read_one(psi, sizes, subsizes, starts, trim(restart_dir)//'psi.dat', comm_fft)
 
     phi_old = phi
     omg_old = omg

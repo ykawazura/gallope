@@ -196,6 +196,25 @@ Python visualization scripts are provided in the `diagnostics/` directory, org
 
 ---
 
+---
+
+## Reproducing the paper
+
+The measurements behind *"Gallope: A Multi-GPU pseudospectral solver for
+magnetohydrodynamic models using the cuFFTMp library"* (COMPHY-D-26-00110) are archived, not summarised.
+
+| what | where |
+|---|---|
+| Section 4, Figures 1-5 — FFT-level and application-level scaling on Miyabi-G and TSUBAME 4.0 | **[`benchmarks/`](benchmarks/)** in this repository: raw stdout of every run, the inputs and job scripts that produced it, the campaign drivers, and the plotting scripts |
+| Section 5, Figures 6-8 and Table 2 — deterministic <span style="font-variant: small-caps;">Gallope</span>/<span style="font-variant: small-caps;">Calliope</span> comparison and the nonlinear MRI run | **[ykawazura/gallope-calliope_comparison](https://github.com/ykawazura/gallope-calliope_comparison)**, where each run sits beside its <span style="font-variant: small-caps;">Calliope</span> counterpart |
+
+`benchmarks/README.md` carries the figure-by-figure index, the correspondence
+to the benchmarking protocol of Section 4.1, and how to re-plot each figure.
+
+The code those measurements were taken with is this branch at tag
+[`v1.0`](https://github.com/ykawazura/gallope/releases/tag/v1.0).  Cite the tag
+rather than the tip of `main`: later commits will move on from the paper.
+
 ## Repository Structure
 
 ```Plaintext
@@ -211,6 +230,11 @@ Python visualization scripts are provided in the `diagnostics/` directory, org
 │   ├── MHD_INCOMP/
 │   └── RMHD/
 │   └── ...
+├── benchmarks/         # Raw timings, inputs and plotting scripts of the paper's Figs. 1-5
+│   ├── gallope/                # application-level scaling
+│   ├── p3dfft_vs_cufftmp/      # FFT-level scaling
+│   └── README.md
+├── tests/              # Reference runs with their recorded stdout
 ├── Makefile.in         # Main build 
 └── README.md
 ```

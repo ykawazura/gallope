@@ -981,8 +981,8 @@ contains
     use grid, only: nlx, nlx_local, nly, nlz_padded
     use grid, only: nkx, nky_local, nkz
     use grid, only: ntot
-    use params, only: zi
     use mp, only: proc0, max_allreduce, sum_allreduce
+    use params, only: zi
     use time, only: cfl, dt, tt, reset_method, increase_dt
     use time_stamp, only: put_time_stamp, timer_nonlinear_terms
     use advance_common, only: dt_adjust_while_running 
@@ -1232,7 +1232,11 @@ contains
     nl(ibz) = -zi*( kxt*flx_by - ky *flx_bx )
 
     ! get pressure
-    p = -zi*( kxt*nl(iux) + ky*nl(iuy) + kz*nl(iuz) + 2.d0*zi*shear_flg*(kxt*uy - ky*ux) )*k2t_inv
+    ! The constraint in shearing coordinates is kxt*ux + ky*uy + kz*uz = 0 with
+    ! kxt = kx + q*tsc*ky, so d(kxt)/dt = q*ky and differentiating it gives
+    ! kxt*dux/dt + ky*duy/dt + kz*duz/dt = -q*ky*ux.  Solving that for p:
+    p = -zi*( kxt*nl(iux) + ky*nl(iuy) + kz*nl(iuz) &
+              + 2.d0*shear_flg*kxt*uy - (2.d0 - 2.d0*q)*shear_flg*ky*ux )*k2t_inv
 
     exp_terms_ux = nl(iux) + fux - zi*kxt*p + 2.d0*shear_flg*uy
     exp_terms_uy = nl(iuy) + fuy - zi*ky *p - (2.d0 - q)*shear_flg*ux

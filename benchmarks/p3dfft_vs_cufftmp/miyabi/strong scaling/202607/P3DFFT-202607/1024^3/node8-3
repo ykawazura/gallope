@@ -1,0 +1,25 @@
+ Double precision version
+ P3DFFT test, random input
+ nx =  1024, ny =  1024, nz =  1024, nproc =    576, ndim =     2, nrepeat =    10
+ ==========================================
+ Total MPI processes:    576
+ Unique nodes:             8
+ ==========================================
+ Creating proc. grid with mpi_dims_create
+ Using processor grid            24  x            24
+ Using stride-1 layout
+ Using loop block sizes             1           48            1            1
+ Running on             1 threads
+ Iteration =             1 , time =    0.2148360940000000     
+ Iteration =             2 , time =    0.2598332720000001     
+ Iteration =             3 , time =    0.3041519140000000     
+ Iteration =             4 , time =    0.2403342840000000     
+ Iteration =             5 , time =    0.2287073389999996     
+ Iteration =             6 , time =    0.2512106630000002     
+ Iteration =             7 , time =    0.2154498260000004     
+ Iteration =             8 , time =    0.2551359010000001     
+ Iteration =             9 , time =    0.2692079460000003     
+ Iteration =            10 , time =    0.2680880029999999     
+ proc_id =             0 , cpu time per loop =    0.2506955242000001     
+ Results are correct
+ max diff =   1.6098233857064770E-015

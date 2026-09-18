@@ -1,0 +1,45 @@
+#=======================================================================
+# TSUBAME4.0 (Institute of Science Tokyo), SEPARATED memory build.
+#
+# This tree is the Miyabi snapshot of gallope that produced Fig. 2, kept
+# byte-identical on purpose: the TSUBAME campaign exists to change ONE thing
+# (whether the all-to-all leaves the node), so the solver source must not move
+# with it.  The newer gallope dev tree cannot be used for that -- since commit
+# 2852855 made `comm` mandatory in mpiio_read_one, MODEL=MHD_INCOMP no longer
+# compiles there at all.
+#
+# Counterpart of bench-202607/bin/arch-gallope-sep.in on Miyabi; only the
+# toolchain paths and the GPU target differ.
+#
+# Why nvhpc 26.1: cuFFTMp reaches other nodes through NVSHMEM, and the NVSHMEM
+# 2.10.1 in nvhpc/24.1 cannot open an inter-node transport here (its ibrc wants
+# nv_peer_mem / nvidia_peermem, which the driver-580 + OFED-26.04 stack replaced
+# with DMA-BUF).  26.1 ships NVSHMEM 3.5.19, which registers the symmetric heap
+# through mlx5dv DMA-BUF.  Single-node runs work with either -- so this matters
+# exactly from 2 nodes on, which is the regime being measured.
+#
+# netCDF / HDF5 exist here only as nvhpc24.1 builds; that is fine, they are C
+# libraries and their .mod files are readable by the 26.1 nvfortran.  netCDF-C
+# and netCDF-Fortran share one prefix, unlike Miyabi, hence no NETCDF_FORTRAN_DIR.
+#
+# -gpu=cc90,cuda13.1: H100 only, and the CUDA version must be spelled out
+# because the login nodes carry no NVIDIA driver, so nvfortran cannot infer it.
+#
+# src/Makefile overrides LINKER with ':=', expanding ${NVHPC_ROOT}, so that
+# variable has to be defined here even though the LINKER line below is dead.
+#=======================================================================
+NVHPC_ROOT        = /apps/t4/rhel9/isv/nvidia/hpc_sdk/Linux_x86_64/26.1
+MPI_ROOT          = /apps/t4/rhel9/free/openmpi/5.0.2/nvhpc
+HDF5_PARALLEL_DIR = /apps/t4/rhel9/free/hdf5-parallel/1.14.3/nvhpc24.1/openmpi5.0.2
+NETCDF_DIR        = /apps/t4/rhel9/free/netcdf-parallel/4.9.2/nvhpc24.1/openmpi5.0.2
+
+F90 = $(MPI_ROOT)/bin/mpif90
+export OMPI_FC = $(NVHPC_ROOT)/compilers/bin/nvfortran
+
+NETCDF_INC = -I$(NETCDF_DIR)/include
+NETCDF_LIB = -L$(NETCDF_DIR)/lib -lnetcdff -lnetcdf \
+             -L$(HDF5_PARALLEL_DIR)/lib -lhdf5_hl -lhdf5 -lz
+
+FLAGS  = -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel \
+         -cuda -cudalib=cufftmp -gpu=cc90,cuda13.1
+LINKER = -L${NVHPC_ROOT}/compilers/lib -lnvhpcwrapcufft -L${NVHPC_ROOT}/math_libs/lib64/ -lcufftMp -lmpi

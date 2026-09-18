@@ -1,0 +1,26 @@
+ cuFFTMp test, random input
+ nx =  1536, ny =  1536, nz =  1536, nproc =     32, ndevices =     4, nrepeat =    10
+ ==========================================
+ Total MPI processes:     32
+ Unique nodes:             8
+ GPUs per node:            4
+ Total GPUs used:         32
+ WARNING: Multiple processes per node detected!
+ This may cause GPU contention.
+ ==========================================
+ local_rshape          :         1538         1536           48
+ local_permuted_cshape :          769           48         1536
+ Iteration =             1 , time =    7.7363767999999999E-002
+ Iteration =             2 , time =    7.7318761000000014E-002
+ Iteration =             3 , time =    7.7297018000000023E-002
+ Iteration =             4 , time =    7.7285830999999944E-002
+ Iteration =             5 , time =    7.7279450999999943E-002
+ Iteration =             6 , time =    7.7301204999999984E-002
+ Iteration =             7 , time =    7.7253381999999871E-002
+ Iteration =             8 , time =    7.7196826999999968E-002
+ Iteration =             9 , time =    7.7269806999999968E-002
+ Iteration =            10 , time =    7.7287713999999785E-002
+ Results are correct
+ max diff =   1.3045120539345589E-014
+ Relative Linf =    1.3045120559860343E-014
+ proc_id =             0 , cpu time per loop =    7.7287125999999956E-002

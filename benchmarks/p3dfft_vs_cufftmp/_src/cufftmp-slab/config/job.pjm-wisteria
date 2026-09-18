@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#------ pjsub option --------# 
+#PJM -L rscgrp=regular-a
+#PJM -g gv88
+#PJM -L node=8
+#PJM --mpi proc=64
+#PJM -L elapse=0:10:00 
+#PJM -j
+#PJM -o "stdout"
+
+module load nvidia
+module load nvmpi
+export UCX_MEMTYPE_CACHE=n
+export UCX_IB_GPU_DIRECT_RDMA=n
+mpiexec -machinefile $PJM_O_NODEINF -n $PJM_MPI_PROC -npernode 8 ./cufftmp_r2c

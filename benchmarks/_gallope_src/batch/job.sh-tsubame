@@ -1,0 +1,192 @@
+#!/bin/sh
+#=======================================================================
+# gallope strong-scaling benchmark on TSUBAME4.0 -- Altair Grid Engine (AGE),
+# NOT PBS.  Counterpart of the Miyabi campaign driven by
+# bench-202607/scripts/setup_runs.sh, which produced Fig. 2.
+#
+# Run this script; do NOT qsub it -- it submits itself.  The group is charged
+# through `qsub -g`, an option of TSUBAME's qsub wrapper only: as a `#$ -g`
+# directive AGE rejects it ("invalid option argument -g"), and AGE's own -P is
+# a different namespace.  $JOB_ID tells the two roles apart.
+#
+#   ./batch/job.sh-tsubame                                # 1 node, GPU 1..4, 384^3
+#   NODES=8 GPUS=32 TRIAL=2 ./batch/job.sh-tsubame
+#   BUILD=uni ./batch/job.sh-tsubame                      # -gpu=mem:unified build
+#   NODES=4 GPUS=4 PPN=1 TRIAL=1 ./batch/job.sh-tsubame   # placement control
+#   RESOURCE=node_q NODES=1 GPUS=1 GRIDS=128 NSTEP=5 ./batch/job.sh-tsubame  # smoke
+#
+# Why TSUBAME at all, when Fig. 2 was measured on Miyabi: Miyabi-G is one GPU
+# per node, so its node1 -> node2 step conflates "twice the GPUs" with "the
+# all-to-all left the node".  Here a node holds 4 H100 on NVLink (~900 GB/s)
+# and nodes are joined by 4x NDR200 (800 Gbps, ~9:1), so 1->4 GPUs stays inside
+# the node and 5+ GPUs cannot.  Same solver source, same input, one variable
+# changed -- which is why this tree is the Miyabi snapshot and not the newer
+# gallope dev tree.
+#
+# Knobs (lists are COLON-separated; AGE's -v is comma-separated and would eat
+# spaces):
+#   BUILD     sep | uni     -> bin/gallope-<BUILD>              [sep]
+#   RESOURCE  node_f | node_h | node_q   GPUs/node 4 | 2 | 1    [node_f]
+#   NODES     nodes to allocate                                 [1]
+#   GPUS      total GPU counts to run, e.g. 1:2:3:4             [fill]
+#   PPN       ranks per node; overrides the default packing     [min(g,GPN)]
+#   GRIDS     N for an N^3 box                                  [384]
+#   TRIAL     trial index, appended to the output file name     [1]
+#   NSTEP     timed steps                                       [100]
+#   H_RT      wall-clock reservation, overrides the directive   [1:00:00]
+#   TEMPLATE  input the run inputs are derived from   [inputs/gallope.in]
+#
+# One job = one allocation shape, and it walks the GPU list inside it: three
+# INDEPENDENT submissions per configuration (TRIAL=1,2,3) is what gives the
+# median and the min-max whiskers, so trials must never be looped over here.
+#
+# Grid: 384^3 = 2^7*3, so nly divides by every count in 1,2,3,4,8,12,16,32 --
+# unlike the 1024^3 of the Miyabi run, which would lose the 3- and 12-GPU
+# points.  384^3 on one GPU is about 23 GB, so the 1-GPU end of the curve
+# exists here, which it does not at 1024^3.
+#
+# Output: results-202607/tsubame/strong_scaling/<N>^3/<BUILD>/gpu<G>-node<M>-<T>
+# G and M are both in the name because on this machine they are independent --
+# that is the whole point -- and gallope prints "MPI processes", "Nodes" and
+# "GPUs per node" of its own accord, so the placement is verified from the file
+# contents rather than trusted from its name.
+#=======================================================================
+#$ -cwd
+#$ -l h_rt=1:00:00
+#$ -N gallope
+#$ -j y
+
+TSUBAME_GROUP=tgh-26IDS
+BUILD=${BUILD:-sep}
+RESOURCE=${RESOURCE:-node_f}
+NODES=${NODES:-1}
+GPUS=${GPUS:-}
+PPN=${PPN:-}
+GRIDS=${GRIDS:-384}
+TRIAL=${TRIAL:-1}
+NSTEP=${NSTEP:-100}
+# A command-line -l overrides the #$ directive above, so H_RT is what actually
+# reserves the node.  Smoke tests should not book an hour of node_f.
+H_RT=${H_RT:-1:00:00}
+TEMPLATE=${TEMPLATE:-inputs/gallope.in}
+RESULTS=${RESULTS:-results-202607/tsubame}
+
+case ${RESOURCE} in
+    node_f) GPN=4 ;;
+    node_h) GPN=2 ;;
+    node_q) GPN=1 ;;
+    *) echo "unsupported RESOURCE=${RESOURCE} (need node_f/node_h/node_q)" >&2
+       exit 1 ;;
+esac
+
+if [ -z "${GPUS}" ]; then
+    if [ "${NODES}" -eq 1 ]; then          # sweep the whole node
+        GPUS=$(seq -s: 1 ${GPN})
+    else
+        GPUS=$(( NODES * GPN ))
+    fi
+fi
+
+if [ -z "${JOB_ID}" ]; then     # not under AGE yet -> submit ourselves
+    exec qsub -g ${TSUBAME_GROUP} -l ${RESOURCE}=${NODES} -l h_rt=${H_RT} \
+        -v "BUILD=${BUILD},RESOURCE=${RESOURCE},NODES=${NODES},GPUS=${GPUS},PPN=${PPN},GRIDS=${GRIDS},TRIAL=${TRIAL},NSTEP=${NSTEP},H_RT=${H_RT},TEMPLATE=${TEMPLATE},RESULTS=${RESULTS}" \
+        "$0"
+fi
+
+. ./batch/env-tsubame.sh
+
+ROOT=${PWD}
+EXE=${ROOT}/bin/gallope-${BUILD}
+BIND=${ROOT}/batch/gpu-bind-tsubame.sh
+
+if [ ! -x "${EXE}" ]; then
+    echo "no such binary: ${EXE} (set arch = tsubame-${BUILD} in Makefile.in and make)" >&2
+    exit 1
+fi
+if [ ! -r "${ROOT}/${TEMPLATE}" ]; then
+    echo "no such input template: ${ROOT}/${TEMPLATE}" >&2
+    exit 1
+fi
+
+# Device-memory guard.  MHD_INCOMP keeps of order 400 bytes of spectral state
+# per grid point (the six fields in three RK registers, the 4-D flux and
+# exp_terms work arrays, plus the cuFFTMp workspace), calibrated against the
+# Miyabi runs.  A run that does not fit dies inside the first !$acc region with
+# an out-of-memory that reads like a binding bug, so refuse it up front -- and
+# print the skip, so that a hole in the data set is never mistaken for coverage.
+DEV_LIMIT=60000000000
+BYTES_PER_POINT=400
+
+echo "===== ENVIRONMENT (for R1-4) ====="
+date
+echo "--- host";      hostname
+echo "--- resource";  echo "${RESOURCE}=${NODES}  hosts=${NHOSTS}  slots=${NSLOTS}"
+echo "--- binary";    ls -l "${EXE}"
+echo "--- nvfortran"; nvfortran --version 2>&1 | head -3
+echo "--- mpirun";    mpirun --version 2>&1 | head -2
+echo "=================================="
+echo "build=${BUILD} grids=${GRIDS} gpus=${GPUS} trial=${TRIAL} nstep=${NSTEP}"
+
+for g in $(echo "${GPUS}" | tr ':' ' '); do
+    if [ -n "${PPN}" ]; then
+        ppn=${PPN}
+    elif [ "${g}" -lt "${GPN}" ]; then
+        ppn=${g}
+    else
+        ppn=${GPN}
+    fi
+    nodes_used=$(( (g + ppn - 1) / ppn ))
+    if [ "${nodes_used}" -gt "${NHOSTS}" ]; then
+        echo "!! skip gpu=${g} ppn=${ppn}: needs ${nodes_used} nodes, have ${NHOSTS}"
+        continue
+    fi
+
+    for n in $(echo "${GRIDS}" | tr ':' ' '); do
+        # grid.F90:140 refuses mod(nly, nproc) > 0.  nlx is free -- it is split
+        # with a remainder cutoff at grid.F90:74 -- but the boxes here are cubic
+        # so the one test covers it.
+        if [ $(( n % g )) -ne 0 ]; then
+            echo "!! skip ${n}^3 gpu=${g}: nly=${n} is not divisible by ${g}"
+            continue
+        fi
+        need=$(( BYTES_PER_POINT * n * n * n / g ))
+        if [ ${need} -gt ${DEV_LIMIT} ]; then
+            echo "!! skip ${n}^3 gpu=${g}: ~$(( need / 1000000000 )) GB/GPU exceeds the guard"
+            continue
+        fi
+
+        tag="gpu${g}-node${nodes_used}-${TRIAL}"
+        rundir="${ROOT}/runs/${BUILD}/${n}^3/${tag}"
+        out="${ROOT}/${RESULTS}/strong_scaling/${n}^3/${BUILD}/${tag}"
+
+        mkdir -p "${rundir}/out2d" "${rundir}/out3d" "${rundir}/restart"
+        mkdir -p "$(dirname "${out}")"
+        # The run dir is a copy of the frozen input with only the box size and
+        # the step count substituted, so every physical parameter stays exactly
+        # what Miyabi ran (note nu_h = eta_h = 1d+5, which differs from
+        # input_example/MHD_INCOMP(MRI).in).
+        sed -e "s/^  nlx = .*/  nlx = ${n}/" \
+            -e "s/^  nly = .*/  nly = ${n}/" \
+            -e "s/^  nlz = .*/  nlz = ${n}/" \
+            -e "s/^  nstep = .*/  nstep = ${NSTEP}/" \
+            "${ROOT}/${TEMPLATE}" > "${rundir}/gallope.in"
+        ln -sf "${EXE}" "${rundir}/gallope"
+
+        echo "== ${n}^3  gpu=${g} ppn=${ppn} nodes=${nodes_used} -> ${out}"
+        # gpu-bind-tsubame.sh pins ACC_DEVICE_NUM to the intra-node rank before
+        # exec'ing the binary: the OpenACC runtime picks its device, and builds
+        # the descriptors of every "!$acc declare create" array, before the
+        # Fortran main runs, so init_cuda's own cudaSetDevice comes too late.
+        # -x LD_LIBRARY_PATH: ranks on the non-launching nodes are started by
+        #     prted from a fresh login shell and never source env-tsubame.sh.
+        # --mca coll_hcoll_enable 0: hcoll cannot attach to the sub-communicators
+        #     gallope creates and floods the log with save_coll_handlers failures.
+        ( cd "${rundir}" && \
+          mpirun -n "${g}" -npernode "${ppn}" \
+              -x LD_LIBRARY_PATH --mca coll_hcoll_enable 0 \
+              "${BIND}" ./gallope > gallope.out.std 2>&1 )
+        cp "${rundir}/gallope.out.std" "${out}"
+    done
+done
+
+echo "done."

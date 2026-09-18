@@ -1,0 +1,7 @@
+mpif90 -c cufftmp_r2c.f90 -o cufftmp_r2c.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified:nomanagedalloc
+cufftmp_r2c:
+    189, CUDA kernel generated
+        189, !$cuf kernel do <<< (*,*,*), (64,2,4) >>>
+    220, CUDA kernel generated
+        220, !$cuf kernel do <<< (*,*,*), (64,2,4) >>>
+mpif90 -o cufftmp_r2c cufftmp_r2c.o -cuda -gpu=mem:unified:nomanagedalloc -L/work/opt/local/aarch64/cores/nvidia/25.9/Linux_aarch64/25.9/compilers/lib -lnvhpcwrapcufft -lnvhpcwrapcufftmp -L/work/opt/local/aarch64/cores/nvidia/25.9/Linux_aarch64/25.9/comm_libs/nvshmem/lib -lnvshmem -L/work/opt/local/aarch64/cores/nvidia/25.9/Linux_aarch64/25.9/math_libs/lib64/ -lcufftMp -L/work/opt/local/aarch64/cores/nvidia/25.9/Linux_aarch64/25.9/comm_libs/mpi/lib/ -lmpi

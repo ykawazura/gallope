@@ -1,0 +1,45 @@
+#=======================================================================
+# P3DFFT benchmark on TSUBAME4.0 (Institute of Science Tokyo)
+#
+# Toolchain is pinned to exactly the one ~/work/.local/p3dfft was built with
+# (gcc 11.4.1 + OpenMPI 5.0.2 + FFTW 3.3.10, --enable-stride1 --enable-openmp);
+# libp3dfft.a carries gfortran .mod files, so nothing else can link against it.
+# That is also the toolchain calliope uses here -- see calliope/arch/tsubame.in.
+#
+# Note the site default is openmpi/5.0.10-gcc, but the gcc builds of FFTW and
+# netCDF all live under an "openmpi5.0.2" prefix, hence the explicit 5.0.2 path.
+#
+# -march=znver3 / -mtune=znver4: the LOGIN node is an EPYC 7443 (Zen3) while the
+# COMPUTE nodes are Zen4, so building for znver4 makes the binary SIGILL on the
+# login node for no gain -- the work is in FFTW, which dispatches at run time.
+#
+# -fallow-argument-mismatch: driver_rand.F90 hands buffers of several types to
+# MPI routines declared in mpif.h; gfortran >= 10 makes that an error.
+# -fopenmp: P3DFFT was configured --enable-openmp, so its objects reference the
+# OpenMP runtime even when the driver itself is serial.
+#=======================================================================
+MPI_HOME    = /apps/t4/rhel9/free/openmpi/5.0.2-gcc
+FFTW3_HOME  = /apps/t4/rhel9/free/fftw/3.3.10/gcc11.4.1/openmpi5.0.2
+P3DFFT_DIR  = $(HOME)/work/.local/p3dfft
+
+FC = $(MPI_HOME)/bin/mpif90
+
+INCLUDES = -I$(P3DFFT_DIR)/include
+CPPFLAGS = -DHAVE_CONFIG_H -I.
+FFLAGS   = -DMEASURE -DSTRIDE1 -DFFTW $(INCLUDES) -O3 -march=znver3 -mtune=znver4 \
+           -fallow-argument-mismatch -ffree-line-length-none -fopenmp -g
+LIBS = $(P3DFFT_DIR)/lib/libp3dfft.a $(FFTW3_HOME)/lib/libfftw3_omp.a \
+       $(FFTW3_HOME)/lib/libfftw3.a
+
+all: test_rand_f.x
+
+test_rand_f.x: driver_rand.o
+	$(FC) $(FFLAGS) -o test_rand_f.x driver_rand.o $(LIBS)
+
+driver_rand.o: driver_rand.F90
+	$(FC) $(CPPFLAGS) $(INCLUDES) $(FFLAGS) -c driver_rand.F90
+
+clean:
+	rm -f driver_rand.o test_rand_f.x
+
+.PHONY: all clean

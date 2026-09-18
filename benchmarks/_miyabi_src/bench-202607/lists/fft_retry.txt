@@ -1,0 +1,6 @@
+/work/gr96/o07001/bench-202607/runs/fftcpu/node16-3
+/work/gr96/o07001/bench-202607/runs/fftcpu/node64-2
+/work/gr96/o07001/bench-202607/runs/fftcpu/node128-1
+/work/gr96/o07001/bench-202607/runs/fftcpu/node256-1
+/work/gr96/o07001/bench-202607/runs/fftcpu/node256-2
+/work/gr96/o07001/bench-202607/runs/fftcpu/node256-3

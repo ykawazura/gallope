@@ -1,0 +1,100 @@
+07-25 08:23:54 ROUND 1: submitting 22 job(s)
+07-25 08:23:55   qsub 2443776.opbs  <- calliope/node64-3
+07-25 08:23:58   qsub 2443777.opbs  <- calliope/node128-1
+07-25 08:24:02   qsub 2443779.opbs  <- calliope/node128-2
+07-25 08:24:06   qsub 2443780.opbs  <- gallope-sep/node256-3
+07-25 08:24:09   qsub 2443781.opbs  <- fft/node8-1
+07-25 08:24:13   qsub 2443782.opbs  <- fft/node8-2
+07-25 08:24:16   qsub 2443783.opbs  <- fft/node8-3
+07-25 08:24:20   qsub 2443784.opbs  <- fft/node16-1
+07-25 08:24:23   qsub 2443785.opbs  <- fft/node16-2
+07-25 08:24:27   qsub 2443786.opbs  <- fft/node16-3
+07-25 08:24:31   qsub 2443787.opbs  <- fft/node32-1
+07-25 08:24:34   qsub 2443788.opbs  <- fft/node32-2
+07-25 08:24:38   qsub 2443789.opbs  <- fft/node32-3
+07-25 08:24:42   qsub 2443790.opbs  <- fft/node64-1
+07-25 08:24:46   qsub 2443791.opbs  <- fft/node64-2
+07-25 08:24:49   qsub 2443793.opbs  <- fft/node64-3
+07-25 08:24:53   qsub 2443794.opbs  <- fft/node128-1
+07-25 08:24:56   qsub 2443795.opbs  <- fft/node128-2
+07-25 08:25:00   qsub 2443796.opbs  <- fft/node128-3
+07-25 08:25:03   qsub 2443798.opbs  <- fft/node256-1
+07-25 08:25:07   qsub 2443800.opbs  <- fft/node256-2
+07-25 08:25:10   qsub 2443801.opbs  <- fft/node256-3
+07-25 08:25:13 ROUND 1: all submitted, waiting for the queue to drain
+07-25 08:49:20 ROUND 1: queue empty
+07-25 08:49:20 ROUND 2: submitting 2 job(s)
+07-25 08:49:21   qsub 2443828.opbs  <- calliope/node64-3
+07-25 08:49:24   qsub 2443829.opbs  <- calliope/node128-2
+07-25 08:49:27 ROUND 2: all submitted, waiting for the queue to drain
+07-25 09:01:30 ROUND 2: queue empty
+07-25 09:01:30 ROUND 3: submitting 54 job(s)
+07-25 09:01:31   qsub 2443838.opbs  <- fftcpu/node1-1
+07-25 09:01:34   qsub 2443839.opbs  <- fftcpu/node1-2
+07-25 09:01:38   qsub 2443842.opbs  <- fftcpu/node128-1
+07-25 09:01:41   qsub 2443843.opbs  <- fftcpu/node128-2
+07-25 09:01:45   qsub 2443844.opbs  <- fftcpu/node128-3
+07-25 09:01:48   qsub 2443845.opbs  <- fftcpu/node1-3
+07-25 09:01:52   qsub 2443847.opbs  <- fftcpu/node16-1
+07-25 09:01:55   qsub 2443850.opbs  <- fftcpu/node16-2
+07-25 09:01:59   qsub 2443851.opbs  <- fftcpu/node16-3
+07-25 09:02:02   qsub 2443852.opbs  <- fftcpu/node2-1
+07-25 09:02:06   qsub 2443853.opbs  <- fftcpu/node2-2
+07-25 09:02:09   qsub 2443854.opbs  <- fftcpu/node2-3
+07-25 09:02:13   qsub 2443855.opbs  <- fftcpu/node256-1
+07-25 09:02:17   qsub 2443856.opbs  <- fftcpu/node256-2
+07-25 09:02:21   qsub 2443857.opbs  <- fftcpu/node256-3
+07-25 09:02:24   qsub 2443858.opbs  <- fftcpu/node32-1
+07-25 09:02:28   qsub 2443859.opbs  <- fftcpu/node32-2
+07-25 09:02:32   qsub 2443860.opbs  <- fftcpu/node32-3
+07-25 09:02:35   qsub 2443861.opbs  <- fftcpu/node4-1
+07-25 09:02:39   qsub 2443862.opbs  <- fftcpu/node4-2
+07-25 09:02:43   qsub 2443863.opbs  <- fftcpu/node4-3
+07-25 09:02:46   qsub 2443864.opbs  <- fftcpu/node64-1
+07-25 09:02:50   qsub 2443865.opbs  <- fftcpu/node64-2
+07-25 09:02:54   qsub 2443866.opbs  <- fftcpu/node64-3
+07-25 09:02:58   qsub 2443868.opbs  <- fftcpu/node8-1
+07-25 09:03:01   qsub 2443869.opbs  <- fftcpu/node8-2
+07-25 09:03:05   qsub 2443870.opbs  <- fftcpu/node8-3
+07-25 09:03:09   qsub 2443871.opbs  <- fftgpu/node1-1
+07-25 09:03:13   qsub 2443872.opbs  <- fftgpu/node1-2
+07-25 09:03:17   qsub 2443873.opbs  <- fftgpu/node128-1
+07-25 09:03:20   qsub 2443874.opbs  <- fftgpu/node128-2
+07-25 09:05:25   qsub 2443878.opbs  <- fftgpu/node128-3
+07-25 09:05:29   qsub 2443879.opbs  <- fftgpu/node1-3
+07-25 09:06:33   qsub 2443883.opbs  <- fftgpu/node16-1
+07-25 09:06:37   qsub 2443884.opbs  <- fftgpu/node16-2
+07-25 09:07:41   qsub 2443887.opbs  <- fftgpu/node16-3
+07-25 09:07:45   qsub 2443888.opbs  <- fftgpu/node2-1
+07-25 09:08:50   qsub 2443890.opbs  <- fftgpu/node2-2
+07-25 09:08:53   qsub 2443892.opbs  <- fftgpu/node2-3
+07-25 09:09:58   qsub 2443893.opbs  <- fftgpu/node256-1
+07-25 09:10:02   qsub 2443894.opbs  <- fftgpu/node256-2
+07-25 09:10:06   qsub 2443895.opbs  <- fftgpu/node256-3
+07-25 09:10:09   qsub 2443896.opbs  <- fftgpu/node32-1
+07-25 09:10:13   qsub 2443898.opbs  <- fftgpu/node32-2
+07-25 09:12:18   qsub 2443902.opbs  <- fftgpu/node32-3
+07-25 09:12:22   qsub 2443903.opbs  <- fftgpu/node4-1
+07-25 09:12:25   qsub 2443904.opbs  <- fftgpu/node4-2
+07-25 09:12:30   qsub 2443906.opbs  <- fftgpu/node4-3
+07-25 09:14:35   qsub 2443909.opbs  <- fftgpu/node64-1
+07-25 09:14:38   qsub 2443910.opbs  <- fftgpu/node64-2
+07-25 09:14:42   qsub 2443911.opbs  <- fftgpu/node64-3
+07-25 09:15:46   qsub 2443913.opbs  <- fftgpu/node8-1
+07-25 09:15:50   qsub 2443914.opbs  <- fftgpu/node8-2
+07-25 09:16:54   qsub 2443918.opbs  <- fftgpu/node8-3
+07-25 09:16:57 ROUND 3: all submitted, waiting for the queue to drain
+07-25 10:35:19 ROUND 3: queue empty
+07-25 10:35:20 ROUND 4: submitting 9 job(s)
+07-25 10:35:20   qsub 2444050.opbs  <- fftcpu/node128-1
+07-25 10:35:24   qsub 2444051.opbs  <- fftcpu/node16-2
+07-25 10:35:27   qsub 2444052.opbs  <- fftcpu/node16-3
+07-25 10:35:31   qsub 2444053.opbs  <- fftcpu/node256-1
+07-25 10:35:34   qsub 2444054.opbs  <- fftcpu/node256-2
+07-25 10:35:38   qsub 2444056.opbs  <- fftcpu/node256-3
+07-25 10:35:42   qsub 2444057.opbs  <- fftcpu/node32-2
+07-25 10:35:45   qsub 2444058.opbs  <- fftcpu/node4-3
+07-25 10:35:49   qsub 2444059.opbs  <- fftcpu/node64-2
+07-25 10:35:52 ROUND 4: all submitted, waiting for the queue to drain
+07-25 11:16:04 ROUND 4: queue empty
+07-25 11:16:04 reached MAXROUND=4; remaining failures need manual attention

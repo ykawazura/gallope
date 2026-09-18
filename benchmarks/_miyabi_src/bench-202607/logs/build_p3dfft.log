@@ -1,0 +1,715 @@
+=== nvfortran version
+
+nvfortran 25.9-0 linuxarm64 target on aarch64 Linux -tp neoverse-v2 
+NVIDIA Compilers and Tools
+Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+=== cleaning
+=== configure
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether build environment is sane... yes
+/work/gr96/o07001/bench-202607/p3dfft-src/missing: Unknown `--is-lightweight' option
+Try `/work/gr96/o07001/bench-202607/p3dfft-src/missing --help' for more information
+configure: WARNING: 'missing' script is too old or missing
+checking for a thread-safe mkdir -p... /usr/bin/mkdir -p
+checking for gawk... gawk
+checking whether make sets $(MAKE)... yes
+checking whether make supports nested variables... yes
+checking whether to use IBM compiler... no
+checking whether to use Intel compiler... no
+checking whether to use PGI compiler... no
+checking whether to use Cray compiler... no
+checking whether to use GNU compiler... no
+checking whether to use OpenMPI... no
+checking whether to use OpenMP library... yes
+checking whether to enable single precision... no
+checking whether to enable 1D decomposition... no
+checking whether to enable estimation... no
+checking whether to enable the measure algorithm... yes
+checking whehter to enable the patient algorithm... no
+checking whether to enable C convention for processor dimensions... no
+checking whether to use MPI_Alltoall instead of MPI_Alltotallv... no
+checking whether to enable stride-1 data structures... yes
+checking whether to override default value of NBL_X... no
+checking whether to override the default value of NBL_Y1... no
+checking whether to override the default value of NBL_Y2... no
+checking whether to override the default value of NBL_Z... no
+checking whether to use FFTW library... yes
+checking whether to use ESSL library... no
+checking FFTW directory... /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10
+checking ESSL directory... none
+checking whether the Fortran compiler works... yes
+checking for Fortran compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether we are using the GNU Fortran compiler... no
+checking whether mpif90 accepts -g... yes
+checking for mpicc... mpicc
+checking for ranlib... ranlib
+checking whether make sets $(MAKE)... (cached) yes
+checking whether we are using the GNU C compiler... yes
+checking whether mpicc accepts -g... yes
+checking for mpicc option to accept ISO C89... none needed
+checking how to run the C preprocessor... cpp
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for ANSI C header files... yes
+checking for sys/types.h... yes
+checking for sys/stat.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for memory.h... yes
+checking for strings.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for unistd.h... yes
+checking for stdlib.h... (cached) yes
+checking for stdlib.h... (cached) yes
+checking for GNU libc compatible malloc... yes
+checking that generated files are newer than configure... done
+configure: creating ./config.status
+config.status: creating Makefile
+config.status: creating build/Makefile
+config.status: creating sample/Makefile
+config.status: creating sample/C/Makefile
+config.status: creating sample/FORTRAN/Makefile
+config.status: creating config.h
+configure: configure script complete!
+=== effective flags
+194:CFLAGS = -O3 -fast
+207:FCFLAGS = -O3 -fast
+208:FDFLAGS = -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW
+=== make
+make  all-recursive
+make[1]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src'
+Making all in build
+make[2]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/build'
+mpif90 -DHAVE_CONFIG_H -I. -I.. -I/work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/include   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -O3 -fast -c -o fft_spec.o fft_spec.F90
+mpif90 -DHAVE_CONFIG_H -I. -I.. -I/work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/include   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -O3 -fast -c -o module.o module.F90
+mpif90 -DHAVE_CONFIG_H -I. -I.. -I/work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/include   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -O3 -fast -c -o fft_init.o fft_init.F90
+mpif90 -DHAVE_CONFIG_H -I. -I.. -I/work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/include   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -O3 -fast -c -o fft_exec.o fft_exec.F90
+mpif90 -DHAVE_CONFIG_H -I. -I.. -I/work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/include   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -O3 -fast -c -o wrap.o wrap.F90
+rm -f libp3dfft.a
+ar cru libp3dfft.a fft_spec.o module.o fft_init.o fft_exec.o wrap.o 
+ranlib libp3dfft.a
+make[2]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/build'
+Making all in sample
+make[2]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+Making all in FORTRAN
+make[3]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/FORTRAN'
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_sine_many.o driver_sine_many.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_sine_many_f.x driver_sine_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_sine.o driver_sine.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_sine_f.x driver_sine.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_sine_pruned.o driver_sine_pruned.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_sine_pruned_f.x driver_sine_pruned.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_sine_inplace.o driver_sine_inplace.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_sine_inplace_f.x driver_sine_inplace.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_rand.o driver_rand.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_rand_f.x driver_rand.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_spec.o driver_spec.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_spec_f.x driver_spec.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_inverse.o driver_inverse.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_inverse_f.x driver_inverse.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_cheby.o driver_cheby.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_cheby_f.x driver_cheby.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_noop.o driver_noop.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_noop_f.x driver_noop.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_sine_inplace_many.o driver_sine_inplace_many.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_sine_inplace_many_f.x driver_sine_inplace_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+mpif90 -DHAVE_CONFIG_H -I. -I../.. -I../../include/   -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast -c -o driver_rand_many.o driver_rand_many.F90
+mpif90 -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -I../../include/  -O3 -fast   -o test_rand_many_f.x driver_rand_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a    
+make[3]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/FORTRAN'
+Making all in C
+make[3]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/C'
+mpicc -DHAVE_CONFIG_H -I. -I../.. -I../../include/ -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -g   -O3 -fast -c driver_sine.c
+"driver_sine.c", line 41: warning: variable "j" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+           ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"driver_sine.c", line 41: warning: variable "k" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+             ^
+
+"driver_sine.c", line 41: warning: variable "nu" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+                                                         ^
+
+"driver_sine.c", line 44: warning: variable "iproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+         ^
+
+"driver_sine.c", line 44: warning: variable "jproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+               ^
+
+"driver_sine.c", line 44: warning: variable "ng" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                     ^
+
+"driver_sine.c", line 44: warning: variable "kmax" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                           ^
+
+"driver_sine.c", line 44: warning: variable "iex" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                                ^
+
+"driver_sine.c", line 49: warning: variable "tcomm" was set but never used [set_but_not_used]
+     double tcomm,gtcomm[3];
+            ^
+
+"driver_sine.c", line 49: warning: variable "gtcomm" was declared but never referenced [declared_but_not_referenced]
+     double tcomm,gtcomm[3];
+                  ^
+
+O3 -fast   -o test_sine_c.x driver_sine.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:423: test_sine_c.x] Error 127 (ignored)
+mpicc -DHAVE_CONFIG_H -I. -I../.. -I../../include/ -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -g   -O3 -fast -c driver_sine_inplace.c
+"driver_sine_inplace.c", line 66: warning: variable "B" was declared but never referenced [declared_but_not_referenced]
+     double *A,*B,*p,*C;
+                ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"driver_sine_inplace.c", line 66: warning: variable "C" was declared but never referenced [declared_but_not_referenced]
+     double *A,*B,*p,*C;
+                      ^
+
+"driver_sine_inplace.c", line 70: warning: variable "j" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+           ^
+
+"driver_sine_inplace.c", line 70: warning: variable "k" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+             ^
+
+"driver_sine_inplace.c", line 70: warning: variable "nu" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+                                                         ^
+
+"driver_sine_inplace.c", line 73: warning: variable "iproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+         ^
+
+"driver_sine_inplace.c", line 73: warning: variable "jproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+               ^
+
+"driver_sine_inplace.c", line 73: warning: variable "ng" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+                     ^
+
+"driver_sine_inplace.c", line 73: warning: variable "kmax" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+                           ^
+
+"driver_sine_inplace.c", line 73: warning: variable "iex" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+                                ^
+
+O3 -fast   -o test_sine_inplace_c.x driver_sine_inplace.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:427: test_sine_inplace_c.x] Error 127 (ignored)
+mpicc -DHAVE_CONFIG_H -I. -I../.. -I../../include/ -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -g   -O3 -fast -c driver_rand.c
+"driver_rand.c", line 67: warning: variable "p" was declared but never referenced [declared_but_not_referenced]
+     double *A,*B, *C,*p1,*p2,*p;
+                               ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"driver_rand.c", line 72: warning: variable "j" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+           ^
+
+"driver_rand.c", line 72: warning: variable "k" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+             ^
+
+"driver_rand.c", line 72: warning: variable "nu" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+                                                         ^
+
+"driver_rand.c", line 75: warning: variable "iproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+         ^
+
+"driver_rand.c", line 75: warning: variable "jproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+               ^
+
+"driver_rand.c", line 75: warning: variable "ng" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                     ^
+
+"driver_rand.c", line 75: warning: variable "kmax" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                           ^
+
+"driver_rand.c", line 75: warning: variable "iex" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                                ^
+
+"driver_rand.c", line 77: warning: variable "twopi" was set but never used [set_but_not_used]
+     double pi,twopi,sinyz,cdiff,ccdiff,ans,prec;
+               ^
+
+"driver_rand.c", line 77: warning: variable "sinyz" was declared but never referenced [declared_but_not_referenced]
+     double pi,twopi,sinyz,cdiff,ccdiff,ans,prec;
+                     ^
+
+"driver_rand.c", line 77: warning: variable "ans" was declared but never referenced [declared_but_not_referenced]
+     double pi,twopi,sinyz,cdiff,ccdiff,ans,prec;
+                                        ^
+
+"driver_rand.c", line 78: warning: variable "sinx" was declared but never referenced [declared_but_not_referenced]
+     double *sinx,*siny,*sinz,factor,r;
+             ^
+
+"driver_rand.c", line 78: warning: variable "siny" was declared but never referenced [declared_but_not_referenced]
+     double *sinx,*siny,*sinz,factor,r;
+                   ^
+
+"driver_rand.c", line 78: warning: variable "sinz" was declared but never referenced [declared_but_not_referenced]
+     double *sinx,*siny,*sinz,factor,r;
+                         ^
+
+O3 -fast   -o test_rand_c.x driver_rand.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:415: test_rand_c.x] Error 127 (ignored)
+mpicc -DHAVE_CONFIG_H -I. -I../.. -I../../include/ -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -g   -O3 -fast -c driver_spec.c
+"driver_spec.c", line 67: warning: variable "p" was declared but never referenced [declared_but_not_referenced]
+     double *A,*B, *E,*p1,*p;
+                           ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"driver_spec.c", line 71: warning: variable "j" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+           ^
+
+"driver_spec.c", line 71: warning: variable "k" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+             ^
+
+"driver_spec.c", line 71: warning: variable "nu" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+                                                         ^
+
+"driver_spec.c", line 74: warning: variable "iproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+         ^
+
+"driver_spec.c", line 74: warning: variable "jproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+               ^
+
+"driver_spec.c", line 74: warning: variable "iex" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                                ^
+
+"driver_spec.c", line 74: warning: variable "m" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                                         ^
+
+"driver_spec.c", line 79: warning: variable "cdiff" was declared but never referenced [declared_but_not_referenced]
+     double pi,twopi,sinyz,cdiff,ccdiff,ans;
+                           ^
+
+"driver_spec.c", line 79: warning: variable "ccdiff" was declared but never referenced [declared_but_not_referenced]
+     double pi,twopi,sinyz,cdiff,ccdiff,ans;
+                                 ^
+
+"driver_spec.c", line 79: warning: variable "ans" was declared but never referenced [declared_but_not_referenced]
+     double pi,twopi,sinyz,cdiff,ccdiff,ans;
+                                        ^
+
+"driver_spec.c", line 80: warning: variable "r" was declared but never referenced [declared_but_not_referenced]
+     double *sinx,*siny,*sinz,factor,r;
+                                     ^
+
+"driver_spec.c", line 56: warning: variable "t1" was declared but never referenced [declared_but_not_referenced]
+  double static FORTNAME(t1),FORTNAME(t2),FORTNAME(t3),FORTNAME(t4);
+                ^
+
+"driver_spec.c", line 56: warning: variable "t2" was declared but never referenced [declared_but_not_referenced]
+  double static FORTNAME(t1),FORTNAME(t2),FORTNAME(t3),FORTNAME(t4);
+                             ^
+
+"driver_spec.c", line 56: warning: variable "t3" was declared but never referenced [declared_but_not_referenced]
+  double static FORTNAME(t1),FORTNAME(t2),FORTNAME(t3),FORTNAME(t4);
+                                          ^
+
+"driver_spec.c", line 56: warning: variable "t4" was declared but never referenced [declared_but_not_referenced]
+  double static FORTNAME(t1),FORTNAME(t2),FORTNAME(t3),FORTNAME(t4);
+                                                       ^
+
+O3 -fast   -o test_spec_c.x driver_spec.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:439: test_spec_c.x] Error 127 (ignored)
+mpicc -DHAVE_CONFIG_H -I. -I../.. -I../../include/ -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -g   -O3 -fast -c driver_inverse.c
+"driver_inverse.c", line 66: warning: variable "C" was declared but never referenced [declared_but_not_referenced]
+     double *A,*B,*p,*C;
+                      ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"driver_inverse.c", line 70: warning: variable "j" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+           ^
+
+"driver_inverse.c", line 70: warning: variable "k" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+             ^
+
+"driver_inverse.c", line 70: warning: variable "nu" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+                                                         ^
+
+"driver_inverse.c", line 73: warning: variable "iproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],iex,conf,m,n;
+         ^
+
+"driver_inverse.c", line 73: warning: variable "jproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],iex,conf,m,n;
+               ^
+
+"driver_inverse.c", line 73: warning: variable "ng" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],iex,conf,m,n;
+                     ^
+
+"driver_inverse.c", line 73: warning: variable "iex" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],iex,conf,m,n;
+                           ^
+
+"driver_inverse.c", line 74: warning: variable "Ntot" was declared but never referenced [declared_but_not_referenced]
+     long int Nglob,Ntot;
+                    ^
+
+"driver_inverse.c", line 82: warning: variable "op_f" was declared but never referenced [declared_but_not_referenced]
+     unsigned char op_f[]="fft", op_b[]="tff";
+                   ^
+
+"driver_inverse.c", line 298: warning: variable "sinyz" was declared but never referenced [declared_but_not_referenced]
+    double sinyz,*sinx,*cosx,*siny,*sinz,twopi;
+           ^
+
+O3 -fast   -o test_inverse_c.x driver_inverse.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:407: test_inverse_c.x] Error 127 (ignored)
+mpicc -DHAVE_CONFIG_H -I. -I../.. -I../../include/ -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -g   -O3 -fast -c driver_sine_inplace_many.c
+"driver_sine_inplace_many.c", line 69: warning: variable "B" was declared but never referenced [declared_but_not_referenced]
+      double *A,*B,*p,*C;
+                 ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"driver_sine_inplace_many.c", line 69: warning: variable "C" was declared but never referenced [declared_but_not_referenced]
+      double *A,*B,*p,*C;
+                       ^
+
+"driver_sine_inplace_many.c", line 73: warning: variable "k" was declared but never referenced [declared_but_not_referenced]
+      int i,j,k,x,y,z,nx,ny,nz,nv,proc_id,nproc,dims[2],ndim,nu;
+              ^
+
+"driver_sine_inplace_many.c", line 73: warning: variable "nu" was declared but never referenced [declared_but_not_referenced]
+      int i,j,k,x,y,z,nx,ny,nz,nv,proc_id,nproc,dims[2],ndim,nu;
+                                                             ^
+
+"driver_sine_inplace_many.c", line 76: warning: variable "iproc" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+          ^
+
+"driver_sine_inplace_many.c", line 76: warning: variable "jproc" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+                ^
+
+"driver_sine_inplace_many.c", line 76: warning: variable "ng" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+                      ^
+
+"driver_sine_inplace_many.c", line 76: warning: variable "kmax" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+                            ^
+
+"driver_sine_inplace_many.c", line 76: warning: variable "iex" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n,nm;
+                                 ^
+
+O3 -fast   -o test_sine_inplace_many_c.x driver_sine_inplace_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:431: test_sine_inplace_many_c.x] Error 127 (ignored)
+mpicc -DHAVE_CONFIG_H -I. -I../.. -I../../include/ -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -g   -O3 -fast -c driver_sine_many.c
+"driver_sine_many.c", line 44: warning: variable "k" was declared but never referenced [declared_but_not_referenced]
+      int i,j,k,x,y,z,nx,ny,nz,nv,proc_id,nproc,dims[2],ndim,nu;
+              ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"driver_sine_many.c", line 44: warning: variable "nu" was declared but never referenced [declared_but_not_referenced]
+      int i,j,k,x,y,z,nx,ny,nz,nv,proc_id,nproc,dims[2],ndim,nu;
+                                                             ^
+
+"driver_sine_many.c", line 47: warning: variable "iproc" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+          ^
+
+"driver_sine_many.c", line 47: warning: variable "jproc" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                ^
+
+"driver_sine_many.c", line 47: warning: variable "ng" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                      ^
+
+"driver_sine_many.c", line 47: warning: variable "kmax" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                            ^
+
+"driver_sine_many.c", line 47: warning: variable "iex" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                                 ^
+
+"driver_sine_many.c", line 52: warning: variable "tcomm" was set but never used [set_but_not_used]
+      double tcomm,gtcomm[3];
+             ^
+
+"driver_sine_many.c", line 52: warning: variable "gtcomm" was declared but never referenced [declared_but_not_referenced]
+      double tcomm,gtcomm[3];
+                   ^
+
+O3 -fast   -o test_sine_many_c.x driver_sine_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:435: test_sine_many_c.x] Error 127 (ignored)
+mpicc -DHAVE_CONFIG_H -I. -I../.. -I../../include/ -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -g   -O3 -fast -c driver_rand_many.c
+"driver_rand_many.c", line 70: warning: variable "p" was declared but never referenced [declared_but_not_referenced]
+      double *A,*B, *C,*p1,*p2,*p;
+                                ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"driver_rand_many.c", line 75: warning: variable "k" was declared but never referenced [declared_but_not_referenced]
+      int i,j,k,x,y,z,nx,ny,nz,nv,proc_id,nproc,dims[2],ndim,nu;
+              ^
+
+"driver_rand_many.c", line 75: warning: variable "nu" was declared but never referenced [declared_but_not_referenced]
+      int i,j,k,x,y,z,nx,ny,nz,nv,proc_id,nproc,dims[2],ndim,nu;
+                                                             ^
+
+"driver_rand_many.c", line 78: warning: variable "iproc" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+          ^
+
+"driver_rand_many.c", line 78: warning: variable "jproc" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                ^
+
+"driver_rand_many.c", line 78: warning: variable "ng" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                      ^
+
+"driver_rand_many.c", line 78: warning: variable "kmax" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                            ^
+
+"driver_rand_many.c", line 78: warning: variable "iex" was declared but never referenced [declared_but_not_referenced]
+      int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                                 ^
+
+"driver_rand_many.c", line 80: warning: variable "twopi" was set but never used [set_but_not_used]
+      double pi,twopi,sinyz,cdiff,ccdiff,ans,prec;
+                ^
+
+"driver_rand_many.c", line 80: warning: variable "sinyz" was declared but never referenced [declared_but_not_referenced]
+      double pi,twopi,sinyz,cdiff,ccdiff,ans,prec;
+                      ^
+
+"driver_rand_many.c", line 80: warning: variable "ans" was declared but never referenced [declared_but_not_referenced]
+      double pi,twopi,sinyz,cdiff,ccdiff,ans,prec;
+                                         ^
+
+"driver_rand_many.c", line 81: warning: variable "sinx" was declared but never referenced [declared_but_not_referenced]
+      double *sinx,*siny,*sinz,factor,r;
+              ^
+
+"driver_rand_many.c", line 81: warning: variable "siny" was declared but never referenced [declared_but_not_referenced]
+      double *sinx,*siny,*sinz,factor,r;
+                    ^
+
+"driver_rand_many.c", line 81: warning: variable "sinz" was declared but never referenced [declared_but_not_referenced]
+      double *sinx,*siny,*sinz,factor,r;
+                          ^
+
+O3 -fast   -o test_rand_many_c.x driver_rand_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:419: test_rand_many_c.x] Error 127 (ignored)
+mpicc -DHAVE_CONFIG_H -I. -I../.. -I../../include/ -DOPENMP -DMEASURE -DSTRIDE1 -DFFTW -g   -O3 -fast -c driver_noop.c
+"driver_noop.c", line 62: warning: variable "p1" was declared but never referenced [declared_but_not_referenced]
+     double *A,*B, *C,*p1,*p2,*p;
+                       ^
+
+Remark: individual warnings can be suppressed with "--diag_suppress <warning-name>"
+
+"driver_noop.c", line 62: warning: variable "p2" was declared but never referenced [declared_but_not_referenced]
+     double *A,*B, *C,*p1,*p2,*p;
+                           ^
+
+"driver_noop.c", line 66: warning: variable "j" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+           ^
+
+"driver_noop.c", line 66: warning: variable "k" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+             ^
+
+"driver_noop.c", line 66: warning: variable "nu" was declared but never referenced [declared_but_not_referenced]
+     int i,j,k,x,y,z,nx,ny,nz,proc_id,nproc,dims[2],ndim,nu;
+                                                         ^
+
+"driver_noop.c", line 69: warning: variable "iproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+         ^
+
+"driver_noop.c", line 69: warning: variable "jproc" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+               ^
+
+"driver_noop.c", line 69: warning: variable "ng" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                     ^
+
+"driver_noop.c", line 69: warning: variable "kmax" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                           ^
+
+"driver_noop.c", line 69: warning: variable "iex" was declared but never referenced [declared_but_not_referenced]
+     int iproc,jproc,ng[3],kmax,iex,conf,m,n;
+                                ^
+
+"driver_noop.c", line 74: warning: variable "tcomm" was set but never used [set_but_not_used]
+     double tcomm,gtcomm[3];
+            ^
+
+"driver_noop.c", line 74: warning: variable "gtcomm" was declared but never referenced [declared_but_not_referenced]
+     double tcomm,gtcomm[3];
+                  ^
+
+O3 -fast   -o test_noop_c.x driver_noop.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:411: test_noop_c.x] Error 127 (ignored)
+make[3]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/C'
+make[3]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+make[3]: Nothing to be done for 'all-am'.
+make[3]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+make[2]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+make[2]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src'
+Build successful!
+make[2]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src'
+make[1]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src'
+=== install
+Making install in build
+make[1]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/build'
+make[1]: [Makefile:577: all-local] Error 1 (ignored)
+make[2]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/build'
+ /usr/bin/mkdir -p '/work/gr96/o07001/.local/p3dfft.2-O3/lib'
+ /usr/bin/install -c -m 644  libp3dfft.a '/work/gr96/o07001/.local/p3dfft.2-O3/lib'
+ ( cd '/work/gr96/o07001/.local/p3dfft.2-O3/lib' && ranlib libp3dfft.a )
+make[2]: Nothing to be done for 'install-data-am'.
+make[2]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/build'
+make[1]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/build'
+Making install in sample
+make[1]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+Making install in FORTRAN
+make[2]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/FORTRAN'
+make[3]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/FORTRAN'
+make[3]: Nothing to be done for 'install-exec-am'.
+ /usr/bin/mkdir -p '/work/gr96/o07001/.local/p3dfft.2-O3/share/p3dfft-samples/'
+  /usr/bin/install -c test_sine_many_f.x test_sine_f.x test_sine_pruned_f.x test_sine_inplace_f.x test_rand_f.x test_spec_f.x test_inverse_f.x test_cheby_f.x test_noop_f.x test_sine_inplace_many_f.x test_rand_many_f.x '/work/gr96/o07001/.local/p3dfft.2-O3/share/p3dfft-samples/'
+make[3]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/FORTRAN'
+make[2]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/FORTRAN'
+Making install in C
+make[2]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/C'
+O3 -fast   -o test_sine_c.x driver_sine.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[2]: O3: No such file or directory
+make[2]: [Makefile:423: test_sine_c.x] Error 127 (ignored)
+O3 -fast   -o test_sine_inplace_c.x driver_sine_inplace.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[2]: O3: No such file or directory
+make[2]: [Makefile:427: test_sine_inplace_c.x] Error 127 (ignored)
+O3 -fast   -o test_rand_c.x driver_rand.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[2]: O3: No such file or directory
+make[2]: [Makefile:415: test_rand_c.x] Error 127 (ignored)
+O3 -fast   -o test_spec_c.x driver_spec.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[2]: O3: No such file or directory
+make[2]: [Makefile:439: test_spec_c.x] Error 127 (ignored)
+O3 -fast   -o test_inverse_c.x driver_inverse.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[2]: O3: No such file or directory
+make[2]: [Makefile:407: test_inverse_c.x] Error 127 (ignored)
+O3 -fast   -o test_sine_inplace_many_c.x driver_sine_inplace_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[2]: O3: No such file or directory
+make[2]: [Makefile:431: test_sine_inplace_many_c.x] Error 127 (ignored)
+O3 -fast   -o test_sine_many_c.x driver_sine_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[2]: O3: No such file or directory
+make[2]: [Makefile:435: test_sine_many_c.x] Error 127 (ignored)
+O3 -fast   -o test_rand_many_c.x driver_rand_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[2]: O3: No such file or directory
+make[2]: [Makefile:419: test_rand_many_c.x] Error 127 (ignored)
+O3 -fast   -o test_noop_c.x driver_noop.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[2]: O3: No such file or directory
+make[2]: [Makefile:411: test_noop_c.x] Error 127 (ignored)
+make[3]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/C'
+make[3]: Nothing to be done for 'install-exec-am'.
+O3 -fast   -o test_sine_c.x driver_sine.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:423: test_sine_c.x] Error 127 (ignored)
+O3 -fast   -o test_sine_inplace_c.x driver_sine_inplace.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:427: test_sine_inplace_c.x] Error 127 (ignored)
+O3 -fast   -o test_rand_c.x driver_rand.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:415: test_rand_c.x] Error 127 (ignored)
+O3 -fast   -o test_spec_c.x driver_spec.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:439: test_spec_c.x] Error 127 (ignored)
+O3 -fast   -o test_inverse_c.x driver_inverse.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:407: test_inverse_c.x] Error 127 (ignored)
+O3 -fast   -o test_sine_inplace_many_c.x driver_sine_inplace_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:431: test_sine_inplace_many_c.x] Error 127 (ignored)
+O3 -fast   -o test_sine_many_c.x driver_sine_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:435: test_sine_many_c.x] Error 127 (ignored)
+O3 -fast   -o test_rand_many_c.x driver_rand_many.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:419: test_rand_many_c.x] Error 127 (ignored)
+O3 -fast   -o test_noop_c.x driver_noop.o ../../build/libp3dfft.a /work/opt/local/aarch64/apps/nvidia/25.9/fftw/3.3.10/lib/libfftw3.a     
+make[3]: O3: No such file or directory
+make[3]: [Makefile:411: test_noop_c.x] Error 127 (ignored)
+ /usr/bin/mkdir -p '/work/gr96/o07001/.local/p3dfft.2-O3/share/p3dfft-samples/'
+make[3]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/C'
+make[2]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample/C'
+make[2]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+make[3]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+make[3]: Nothing to be done for 'install-exec-am'.
+make[3]: Nothing to be done for 'install-data-am'.
+make[3]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+make[2]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+make[1]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src/sample'
+make[1]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src'
+Build successful!
+make[2]: Entering directory '/work/gr96/o07001/bench-202607/p3dfft-src'
+make[2]: Nothing to be done for 'install-exec-am'.
+ /usr/bin/mkdir -p '/work/gr96/o07001/.local/p3dfft.2-O3/include'
+ /usr/bin/install -c -m 644 include/p3dfft.h include/p3dfft.mod '/work/gr96/o07001/.local/p3dfft.2-O3/include'
+make[2]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src'
+make[1]: Leaving directory '/work/gr96/o07001/bench-202607/p3dfft-src'
+=== SIMD check (new)
+vector-FP: 36
+total    : 28745
+=== SIMD check (old, -g)
+vector-FP: 0
+total    : 35053
+=== DONE

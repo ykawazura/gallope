@@ -1,0 +1,15 @@
+07-25 11:18:36 ROUND 1: submitting 6 job(s)
+07-25 11:18:36   qsub 2444196.opbs  <- fftcpu/node16-3
+07-25 11:18:40   qsub 2444197.opbs  <- fftcpu/node64-2
+07-25 11:18:43   qsub 2444198.opbs  <- fftcpu/node128-1
+07-25 11:18:47   qsub 2444199.opbs  <- fftcpu/node256-1
+07-25 11:18:51   qsub 2444200.opbs  <- fftcpu/node256-2
+07-25 11:18:54   qsub 2444202.opbs  <- fftcpu/node256-3
+07-25 11:18:57 ROUND 1: all submitted, waiting for the queue to drain
+07-25 11:57:08 ROUND 1: queue empty
+07-25 11:57:08 ROUND 2: submitting 4 job(s)
+07-25 11:57:08   qsub 2444285.opbs  <- fftcpu/node128-1
+07-25 11:57:12   qsub 2444286.opbs  <- fftcpu/node256-1
+07-25 11:57:16   qsub 2444288.opbs  <- fftcpu/node256-2
+07-25 11:57:19   qsub 2444289.opbs  <- fftcpu/node256-3
+07-25 11:57:22 ROUND 2: all submitted, waiting for the queue to drain

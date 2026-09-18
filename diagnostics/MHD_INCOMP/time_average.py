@@ -2,8 +2,10 @@
 from load import *
 from fft import *
 from scipy import interpolate
-from numpy import trapezoid
-from scipy import interpolate
+try:                                    # numpy >= 2.0
+  from numpy import trapezoid
+except ImportError:                     # numpy < 2.0
+  from numpy import trapz as trapezoid
 import sys
 sys.path.append('../')
 from plots import *

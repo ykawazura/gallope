@@ -9,6 +9,7 @@ module grid
   public  lx, ly, lz
   public  nlx, nly, nlz, nlx_local, nlz_padded
   public  nkx, nky, nkz, nky_local
+  public  nm, nm_local, m_offset
   public  ntot
   public  xx, yy, zz, xx_global
   public  kx, ky, kz, ky_global
@@ -22,6 +23,10 @@ module grid
   real(8) :: lx, ly, lz
   integer :: nlx, nly, nlz, nlx_local, nlz_padded
   integer :: nkx, nky, nkz, nky_local
+  ! nm      : total number of Hermite (v_parallel) moments (KRMHD and up; nm=1 for RMHD)
+  ! nm_local: moments held by this rank after the comm_m split
+  ! m_offset: global index of this rank's first local moment (global m runs 0..nm-1)
+  integer :: nm, nm_local, m_offset
   integer :: ntot
   real(8), allocatable :: xx(:), yy(:), zz(:), xx_global(:)
   real(8), allocatable :: kx(:), ky(:), kz(:), ky_global(:)
@@ -33,6 +38,7 @@ module grid
   !$acc declare create(lx, ly, lz)
   !$acc declare create(nlx, nly, nlz, nlx_local, nlz_padded)
   !$acc declare create(nkx, nky, nkz, nky_local)
+  !$acc declare create(nm, nm_local, m_offset)
   !$acc declare create(ntot)
   !$acc declare create(xx, yy, zz)
   !$acc declare create(kx, ky, kz)
@@ -52,6 +58,11 @@ contains
   subroutine init_grid
     use mp, only: proc0, sum_allreduce
     use mp, only: proc_id, nproc
+    ! the real/spectral slabs are decomposed over comm_fft, not the world.
+    ! With P_m=P_s=1, nproc_fft==nproc and iproc_fft==proc_id (bitwise regression).
+    use mp, only: iproc_fft, nproc_fft
+    ! Hermite (v_parallel) moments are decomposed over comm_m.
+    use mp, only: iproc_m, nproc_m
     use params, only: pi, inputfile
     implicit none
     include 'mpif.h'
@@ -67,13 +78,24 @@ contains
     nkz = nlz/2 + 1
 
     ! We start with X-Slabs
-    ! Ranks 0 ... (nlx % nproc - 1) have 1 more element in the X dimension
+    ! Ranks 0 ... (nlx % nproc_fft - 1) have 1 more element in the X dimension
     ! and every rank own all elements in the Y and Z dimensions.
-    ranks_cutoff = mod(nlx, nproc)
-    nlx_local = nlx/nproc 
-    if (proc_id < ranks_cutoff) nlx_local = nlx_local + 1
+    ranks_cutoff = mod(nlx, nproc_fft)
+    nlx_local = nlx/nproc_fft
+    if (iproc_fft < ranks_cutoff) nlx_local = nlx_local + 1
 
-    nky_local =  nly / nproc;
+    nky_local =  nly / nproc_fft;
+
+    ! Hermite-moment decomposition over comm_m (mirror of the nky_local split).
+    ! Require an even divide so m_offset = nm_local*iproc_m is exact, which keeps
+    ! the comm_m halo and the collective rank-4 g I/O consistent across ranks.
+    if (mod(nm, nproc_m) > 0) then
+      if (proc0) print*," nm has to divide evenly by the comm_m rank count (P_m)"
+      call mpi_finalize(ierr)
+      stop
+    end if
+    nm_local = nm / nproc_m
+    m_offset = nm_local * iproc_m
 
     allocate(xx(nlx_local))
     allocate(xx_global(nlx))
@@ -90,7 +112,7 @@ contains
     allocate(kz2(nkz))
 
     do i = 1, nlx_local
-      xx(i) = lx*dble(1.d0/nlx*(i + nlx_local*proc_id - 1))
+      xx(i) = lx*dble(1.d0/nlx*(i + nlx_local*iproc_fft - 1))
     enddo
     do i = 1, nlx
       xx_global(i) = lx*dble(1.d0/nlx*(i - 1))
@@ -112,10 +134,10 @@ contains
       kx(i) = 2.d0*pi*dble(ikx(i))/lx
     enddo
     do j = 1, nky_local
-      if (j + nky_local*proc_id <= nky/2 + 1) then
-        iky(j) = j + nky_local*proc_id - 1
+      if (j + nky_local*iproc_fft <= nky/2 + 1) then
+        iky(j) = j + nky_local*iproc_fft - 1
       else
-        iky(j) = j + nky_local*proc_id - nky - 1
+        iky(j) = j + nky_local*iproc_fft - nky - 1
       endif
 
       ky(j) = 2.d0*pi*dble(iky(j))/ly
@@ -135,10 +157,10 @@ contains
       kz2(k) = kz(k)**2
     enddo
 
-    if (mod(nly, nproc) > 0) then
-      print*," nly has to divide evenly by mpi_procs"
+    if (mod(nly, nproc_fft) > 0) then
+      print*," nly has to divide evenly by the comm_fft rank count"
       call mpi_finalize(ierr)
-    end if 
+    end if
 
     dlx = abs(xx_global(2) - xx_global(1))
     dly = abs(yy(2) - yy(1))
@@ -219,6 +241,7 @@ contains
     !$acc update device(lx, ly, lz)
     !$acc update device(nlx, nly, nlz, nlx_local, nlz_padded)
     !$acc update device(nkx, nky, nkz, nky_local)
+    !$acc update device(nm, nm_local, m_offset)
     !$acc update device(ntot)
     !$acc update device(xx, yy, zz)
     !$acc update device(kx, ky, kz)
@@ -243,7 +266,7 @@ contains
     character(len=100), intent(in) :: filename
     integer  :: unit, ierr
 
-    namelist /box_parameters/ lx, ly, lz, nlx, nly, nlz
+    namelist /box_parameters/ lx, ly, lz, nlx, nly, nlz, nm
 
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
     !v    used only when the corresponding value   v!
@@ -256,6 +279,8 @@ contains
     nlx = 32
     nly = 32
     nlz = 32
+
+    nm  = 1     ! single moment (RMHD limit); KRMHD sets nm>1 in the input file
     !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^!
 
     call get_unused_unit (unit)

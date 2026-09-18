@@ -195,7 +195,7 @@ contains
   ! bin over (x, y)
   subroutine get_polar_spectrum_2d(ee, ebin)
     use params, only: pi
-    use mp, only: sum_reduce
+    use mp, only: sum_reduce, comm_fft
     use grid, only: nkx, nky_local, nkz
     use grid, only: kx, ky
     implicit none
@@ -236,8 +236,9 @@ contains
     ! Transfer ebin to host for MPI reduction
     !$acc update host(ebin)
 
-    ! MPI reduction across all processes
-    call sum_reduce(ebin, 0)
+    ! MPI reduction over comm_fft (field is decomposed along that axis only);
+    ! result lands on global proc0 (root of comm_fft group 0).
+    call sum_reduce(ebin, 0, comm=comm_fft)
 
     ! Transfer reduced result back to device
     !$acc update device(ebin)
@@ -246,7 +247,7 @@ contains
   ! bin over (x, y, z)
   subroutine get_polar_spectrum_3d(ee, ebin)
     use params, only: pi
-    use mp, only: sum_reduce
+    use mp, only: sum_reduce, comm_fft
     use grid, only: kx, ky, kz
     use grid, only: nkx, nky_local, nkz
     use params, only: shear, q
@@ -293,8 +294,8 @@ contains
     ! Transfer ebin to host for MPI reduction
     !$acc update host(ebin)
 
-    ! MPI reduction across all processes
-    call sum_reduce(ebin, 0)
+    ! MPI reduction over comm_fft (see get_polar_spectrum_2d).
+    call sum_reduce(ebin, 0, comm=comm_fft)
 
     ! Transfer reduced result back to device
     !$acc update device(ebin)
@@ -305,7 +306,7 @@ contains
   !       or (x, z) leaving y
   ! no x leaving because kx will be kxt when shear is on.
   subroutine write_polar_spectrum_2d_in_3d(ee, direction, unit)
-    use mp, only: proc0, sum_reduce
+    use mp, only: proc0, sum_reduce, comm_fft
     use grid, only: kx, ky, kz
     use grid, only: nkx, nky, nky_local, nkz
     use params, only: shear, q
@@ -340,7 +341,7 @@ contains
             enddo
           enddo
         enddo
-        call sum_reduce(ebin, 0)
+        call sum_reduce(ebin, 0, comm=comm_fft)
 
         if(proc0) write (unit=unit) ebin
 
@@ -370,7 +371,7 @@ contains
 
           endif
         enddo
-        call sum_reduce(ebin, 0)
+        call sum_reduce(ebin, 0, comm=comm_fft)
 
         if(proc0) write (unit=unit) ebin
 

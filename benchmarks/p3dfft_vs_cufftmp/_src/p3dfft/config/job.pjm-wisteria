@@ -1,0 +1,16 @@
+#!/bin/sh
+
+#------ pjsub option --------# 
+#PJM -L rscgrp=regular-a
+#PJM -g gv88
+#PJM -L node=8
+#PJM --mpi proc=576
+#PJM --omp thread=1
+#PJM -L elapse=0:10:00 
+#PJM -j
+#PJM -o "stdout"
+
+#------- Program execution -------# 
+module load intel 
+module load impi 
+mpiexec.hydra ./test_rand_f.x

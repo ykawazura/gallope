@@ -1,0 +1,18 @@
+#!/bin/sh -l 
+
+#------ qsub option --------# 
+#PBS -q regular-g
+#PBS -l select=32:mpiprocs=72
+#PBS -l walltime=5:00 
+#PBS -W group_list=gr96 
+#PBS -j oe
+
+#------- Program execution -------# 
+module load nvidia
+module load nv-hpcx
+module load hdf5
+module load netcdf
+module load netcdf-fortran
+
+cd ${PBS_O_WORKDIR} 
+mpirun ./test_rand_f.x >stdout

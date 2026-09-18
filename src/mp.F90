@@ -11,15 +11,34 @@ module mp
   include 'mpif.h'
 
   public :: init_mp, finish_mp
+  public :: init_comm_layout
+  public :: halo_exchange_m
   public :: proc_id, nproc, proc0
+  public :: comm_fft, comm_m, comm_s, comm_fm
+  public :: nproc_fft, iproc_fft, proc0_fft
+  public :: nproc_m,   iproc_m,   proc0_m
+  public :: nproc_s,   iproc_s,   proc0_s
   public :: broadcast, sum_reduce, sum_allreduce
   public :: max_reduce, max_allreduce
   public :: min_reduce, min_allreduce
   public :: send, receive, isend, ireceive
   public :: barrier
 
+  ! world communicator state (MPI_COMM_WORLD)
   integer :: proc_id, nproc
   logical :: proc0
+
+  ! [P_fft, P_m, P_s] Cartesian process grid, built by init_comm_layout.
+  ! With P_m=P_s=1, comm_fft == MPI_COMM_WORLD, i.e. the pre-refactor run.
+  integer :: comm_cart
+  integer :: comm_fft, comm_m, comm_s
+  ! comm_fm = the (P_m x P_fft) plane at fixed iproc_s; used for collective
+  ! rank-4 g I/O (every rank owning a slice of the same g field shares one view).
+  integer :: comm_fm
+  integer :: nproc_fft, iproc_fft
+  integer :: nproc_m,   iproc_m
+  integer :: nproc_s,   iproc_s
+  logical :: proc0_fft, proc0_m, proc0_s
 
   interface broadcast
      module procedure broadcast_integer 
@@ -153,9 +172,66 @@ contains
     call MPI_COMM_SIZE (MPI_COMM_WORLD,nproc,ierr)
     call MPI_COMM_RANK (MPI_COMM_WORLD,proc_id,ierr)
 
-    proc0 = proc_id == 0 
+    proc0 = proc_id == 0
 
   end subroutine init_mp
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Build the [P_fft, P_m, P_s] Cartesian process grid and
+!!          extract the comm_fft / comm_m / comm_s sub-communicators.
+!!          P_fft = nproc/(P_m*P_s). With P_m=P_s=1, comm_fft is a
+!!          size-nproc copy of MPI_COMM_WORLD, so the run is bitwise
+!!          identical to the pre-refactor single-communicator code.
+!-----------------------------------------------!
+  subroutine init_comm_layout(p_m, p_s)
+    implicit none
+    integer, intent(in) :: p_m, p_s
+    integer :: p_fft
+    integer :: dims(3)
+    logical :: periods(3), remain(3)
+    integer :: ierr
+
+    if (mod(nproc, p_m*p_s) /= 0) then
+      if (proc0) write(*,'(A,I0,A,I0,A,I0)') &
+        ' ERROR: nproc must be divisible by P_m*P_s. nproc=', nproc, &
+        ', P_m=', p_m, ', P_s=', p_s
+      call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
+    end if
+    p_fft = nproc/(p_m*p_s)
+
+    ! dims ordered [P_s, P_m, P_fft]: P_fft is the fastest-varying axis, so each
+    ! comm_fft holds a contiguous block of world ranks (matches the smoke-test
+    ! color split). reorder=.false. keeps world rank order, so global proc0 is
+    ! the rank-0 root of its comm_fft / comm_m / comm_s.
+    dims    = (/ p_s, p_m, p_fft /)
+    periods = (/ .false., .false., .false. /)
+    call MPI_CART_CREATE(MPI_COMM_WORLD, 3, dims, periods, .false., comm_cart, ierr)
+
+    remain = (/ .false., .false., .true.  /)   ! keep the P_fft axis
+    call MPI_CART_SUB(comm_cart, remain, comm_fft, ierr)
+    remain = (/ .false., .true. , .false. /)   ! keep the P_m axis
+    call MPI_CART_SUB(comm_cart, remain, comm_m,   ierr)
+    remain = (/ .true. , .false., .false. /)   ! keep the P_s axis
+    call MPI_CART_SUB(comm_cart, remain, comm_s,   ierr)
+    remain = (/ .false., .true. , .true.  /)   ! keep the P_m and P_fft axes
+    call MPI_CART_SUB(comm_cart, remain, comm_fm,  ierr)
+
+    call MPI_COMM_SIZE(comm_fft, nproc_fft, ierr)
+    call MPI_COMM_RANK(comm_fft, iproc_fft, ierr)
+    call MPI_COMM_SIZE(comm_m,   nproc_m,   ierr)
+    call MPI_COMM_RANK(comm_m,   iproc_m,   ierr)
+    call MPI_COMM_SIZE(comm_s,   nproc_s,   ierr)
+    call MPI_COMM_RANK(comm_s,   iproc_s,   ierr)
+
+    proc0_fft = iproc_fft == 0
+    proc0_m   = iproc_m   == 0
+    proc0_s   = iproc_s   == 0
+
+    if (proc0) write(*,'(A,I0,A,I0,A,I0,A,I0,A)') &
+      ' Process grid [P_fft, P_m, P_s] = [', p_fft, ', ', p_m, ', ', p_s, &
+      '] over nproc = ', nproc, ' ranks'
+  end subroutine init_comm_layout
 
 !-----------------------------------------------!
 !> @author  YK
@@ -165,8 +241,68 @@ contains
     implicit none
     integer :: ierr
 
+    ! comm_fft was attached to the cuFFTMp plans, which are destroyed earlier
+    ! in finish_cuFFTmp; freeing here (before MPI_FINALIZE) is therefore safe.
+    call MPI_COMM_FREE (comm_fft,  ierr)
+    call MPI_COMM_FREE (comm_m,    ierr)
+    call MPI_COMM_FREE (comm_s,    ierr)
+    call MPI_COMM_FREE (comm_fm,   ierr)
+    call MPI_COMM_FREE (comm_cart, ierr)
     call MPI_FINALIZE (ierr)
   end subroutine finish_mp
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Width-1 Hermite-moment halo exchange over comm_m.
+!!          g is stored as (nkz, nky_local, nkx, 0:nm_local+1) with ghost
+!!          moments at local index 0 (= g_{m_offset-1}) and nm_local+1
+!!          (= g_{m_offset+nm_local}). Each plane g(:,:,:,k) is contiguous,
+!!          so it is passed straight to a GPU-aware MPI_SENDRECV via
+!!          host_data use_device (no host staging). Global Hermite boundaries
+!!          (g_{-1}=0, g_{Nm+1}=0) are enforced by zeroing the outermost ghost.
+!-----------------------------------------------!
+  subroutine halo_exchange_m(g)
+    implicit none
+    complex(8), dimension(:,:,:,0:), intent(inout) :: g
+    integer :: n_plane, nm_local
+    integer :: lower, upper
+    integer :: status(MPI_STATUS_SIZE), ierr
+
+    if (nproc_m == 1) return
+
+    nm_local = ubound(g, 4) - 1                 ! ghosts live at 0 and nm_local+1
+    n_plane  = size(g,1) * size(g,2) * size(g,3)
+
+    ! nearest neighbours along comm_m; the global-m ends have none
+    lower = iproc_m - 1
+    upper = iproc_m + 1
+    if (iproc_m == 0)           lower = MPI_PROC_NULL
+    if (iproc_m == nproc_m - 1) upper = MPI_PROC_NULL
+
+    !$acc host_data use_device(g)
+    ! send lowest local moment down, receive upper ghost from above
+    call MPI_SENDRECV(g(1,1,1,1),          n_plane, MPI_DOUBLE_COMPLEX, lower, 0, &
+                      g(1,1,1,nm_local+1),  n_plane, MPI_DOUBLE_COMPLEX, upper, 0, &
+                      comm_m, status, ierr)
+    ! send highest local moment up, receive lower ghost from below
+    call MPI_SENDRECV(g(1,1,1,nm_local),   n_plane, MPI_DOUBLE_COMPLEX, upper, 1, &
+                      g(1,1,1,0),           n_plane, MPI_DOUBLE_COMPLEX, lower, 1, &
+                      comm_m, status, ierr)
+    !$acc end host_data
+
+    ! MPI_PROC_NULL leaves the outer ghosts untouched: pin them to zero so that
+    ! S_m sees g_{-1}=0 (m_offset=0) and g_{Nm+1}=0 (top rank).
+    if (iproc_m == 0) then
+      !$acc kernels present(g)
+      g(:,:,:,0) = (0.d0, 0.d0)
+      !$acc end kernels
+    end if
+    if (iproc_m == nproc_m - 1) then
+      !$acc kernels present(g)
+      g(:,:,:,nm_local+1) = (0.d0, 0.d0)
+      !$acc end kernels
+    end if
+  end subroutine halo_exchange_m
 
 ! ************** broadcasts *****************************
 
@@ -328,354 +464,456 @@ contains
 
 ! ************** reductions ***********************
 
-  subroutine sum_reduce_integer (i, dest)
+  subroutine sum_reduce_integer (i, dest, comm)
     implicit none
     integer, intent (in out) :: i
     integer, intent (in) :: dest
-    integer :: i1, ierror
+    integer, intent (in), optional :: comm
+    integer :: i1, ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_reduce &
-         (i1, i, 1, MPI_INTEGER, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (i1, i, 1, MPI_INTEGER, MPI_SUM, dest, lcomm, ierror)
   end subroutine sum_reduce_integer
 
-  subroutine sum_reduce_integer_array (i, dest)
+  subroutine sum_reduce_integer_array (i, dest, comm)
     implicit none
     integer, dimension (:), intent (in out) :: i
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     integer, dimension (size(i)) :: i1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_reduce &
-         (i1, i, size(i), MPI_INTEGER, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (i1, i, size(i), MPI_INTEGER, MPI_SUM, dest, lcomm, ierror)
   end subroutine sum_reduce_integer_array
 
-  subroutine sum_reduce_integer_2array (i, dest)
+  subroutine sum_reduce_integer_2array (i, dest, comm)
     implicit none
     integer, dimension (:,:), intent (in out) :: i
     integer, intent (in) :: dest
-    integer :: ierror
-    if(proc_id.eq.dest)then
+    integer, intent (in), optional :: comm
+    integer :: ierror, lcomm, lrank
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
+    call mpi_comm_rank (lcomm, lrank, ierror)
+    if(lrank.eq.dest)then
        call mpi_reduce &
-         (MPI_IN_PLACE, i, size(i), MPI_INTEGER, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (MPI_IN_PLACE, i, size(i), MPI_INTEGER, MPI_SUM, dest, lcomm, ierror)
     else
        call mpi_reduce &
-         (i, i, size(i), MPI_INTEGER, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (i, i, size(i), MPI_INTEGER, MPI_SUM, dest, lcomm, ierror)
     endif
   end subroutine sum_reduce_integer_2array
 
-  subroutine sum_reduce_real (a, dest)
+  subroutine sum_reduce_real (a, dest, comm)
     implicit none
     real(8), intent (in out) :: a
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     real(8) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_reduce &
-         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_SUM, dest, lcomm, ierror)
   end subroutine sum_reduce_real
 
-  subroutine sum_reduce_real_array (a, dest)
+  subroutine sum_reduce_real_array (a, dest, comm)
     implicit none
     real(8), dimension (:), intent (in out) :: a
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     real(8), dimension (size(a)) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_reduce &
-         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, lcomm, ierror)
   end subroutine sum_reduce_real_array
 
-  subroutine sum_reduce_real_2array (a, dest)
+  subroutine sum_reduce_real_2array (a, dest, comm)
     implicit none
     real(8), dimension (:,:), intent (in out) :: a
     integer, intent (in) :: dest
-    integer :: ierror
-    if(proc_id.eq.dest)then
+    integer, intent (in), optional :: comm
+    integer :: ierror, lcomm, lrank
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
+    call mpi_comm_rank (lcomm, lrank, ierror)
+    if(lrank.eq.dest)then
        call mpi_reduce &
-         (MPI_IN_PLACE, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (MPI_IN_PLACE, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, lcomm, ierror)
     else
        call mpi_reduce &
-         (a, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (a, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, lcomm, ierror)
     endif
   end subroutine sum_reduce_real_2array
 
-  subroutine sum_reduce_real_3array (a, dest)
+  subroutine sum_reduce_real_3array (a, dest, comm)
     implicit none
     real(8), dimension (:,:,:), intent (in out) :: a
     integer, intent (in) :: dest
-    integer :: ierror
-    if(proc_id.eq.dest)then
+    integer, intent (in), optional :: comm
+    integer :: ierror, lcomm, lrank
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
+    call mpi_comm_rank (lcomm, lrank, ierror)
+    if(lrank.eq.dest)then
        call mpi_reduce &
-         (MPI_IN_PLACE, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (MPI_IN_PLACE, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, lcomm, ierror)
     else
        call mpi_reduce &
-         (a, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (a, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, dest, lcomm, ierror)
     endif
   end subroutine sum_reduce_real_3array
 
-  subroutine sum_reduce_complex (z, dest)
+  subroutine sum_reduce_complex (z, dest, comm)
     implicit none
     complex(8), intent (in out) :: z
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     complex :: z1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     z1 = z
     call mpi_reduce &
-         (z1, z, 1, MPI_DOUBLE_COMPLEX, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (z1, z, 1, MPI_DOUBLE_COMPLEX, MPI_SUM, dest, lcomm, ierror)
   end subroutine sum_reduce_complex
 
-  subroutine sum_reduce_complex_array (z, dest)
+  subroutine sum_reduce_complex_array (z, dest, comm)
     implicit none
     complex(8), dimension (:), intent (in out) :: z
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     complex(8), dimension (size(z)) :: z1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     z1 = z
     call mpi_reduce &
-         (z1, z, size(z), MPI_DOUBLE_COMPLEX, MPI_SUM, dest, MPI_COMM_WORLD, ierror)
+         (z1, z, size(z), MPI_DOUBLE_COMPLEX, MPI_SUM, dest, lcomm, ierror)
   end subroutine sum_reduce_complex_array
 
-  subroutine sum_allreduce_integer (i)
+  subroutine sum_allreduce_integer (i, comm)
     implicit none
     integer, intent (in out) :: i
-    integer :: i1, ierror
+    integer, intent (in), optional :: comm
+    integer :: i1, ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_allreduce &
-         (i1, i, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierror)
+         (i1, i, 1, MPI_INTEGER, MPI_SUM, lcomm, ierror)
   end subroutine sum_allreduce_integer
 
-  subroutine sum_allreduce_integer_array (i)
+  subroutine sum_allreduce_integer_array (i, comm)
     implicit none
     integer, dimension (:), intent (in out) :: i
+    integer, intent (in), optional :: comm
     integer, dimension (size(i)) :: i1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_allreduce &
-         (i1, i, size(i), MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierror)
+         (i1, i, size(i), MPI_INTEGER, MPI_SUM, lcomm, ierror)
   end subroutine sum_allreduce_integer_array
 
-  subroutine sum_allreduce_integer_2array (i)
+  subroutine sum_allreduce_integer_2array (i, comm)
     implicit none
     integer, dimension (:,:), intent (in out) :: i
+    integer, intent (in), optional :: comm
     integer, dimension (size(i,1), size(i,2)) :: i1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_allreduce &
-         (i1, i, size(i), MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierror)
+         (i1, i, size(i), MPI_INTEGER, MPI_SUM, lcomm, ierror)
   end subroutine sum_allreduce_integer_2array
 
-  subroutine sum_allreduce_real (a)
+  subroutine sum_allreduce_real (a, comm)
     implicit none
     real(8), intent (in out) :: a
+    integer, intent (in), optional :: comm
     real(8) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_allreduce &
-         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
+         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_SUM, lcomm, ierror)
   end subroutine sum_allreduce_real
 
-  subroutine sum_allreduce_real_array (a)
+  subroutine sum_allreduce_real_array (a, comm)
     implicit none
     real(8), dimension (:), intent (in out) :: a
+    integer, intent (in), optional :: comm
     real(8), dimension (size(a)) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_allreduce &
-         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
+         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, lcomm, ierror)
   end subroutine sum_allreduce_real_array
 
-  subroutine sum_allreduce_real_2array (a)
+  subroutine sum_allreduce_real_2array (a, comm)
     implicit none
     real(8), dimension (:,:), intent (in out) :: a
+    integer, intent (in), optional :: comm
     real(8), dimension (size(a,1), size(a,2)) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_allreduce &
-         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
+         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_SUM, lcomm, ierror)
   end subroutine sum_allreduce_real_2array
 
-  subroutine sum_allreduce_complex (z)
+  subroutine sum_allreduce_complex (z, comm)
     implicit none
     complex(8), intent (in out) :: z
+    integer, intent (in), optional :: comm
     complex :: z1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     z1 = z
     call mpi_allreduce &
-         (z1, z, 1, MPI_DOUBLE_COMPLEX, MPI_SUM, MPI_COMM_WORLD, ierror)
+         (z1, z, 1, MPI_DOUBLE_COMPLEX, MPI_SUM, lcomm, ierror)
   end subroutine sum_allreduce_complex
 
-  subroutine sum_allreduce_complex_array (z)
+  subroutine sum_allreduce_complex_array (z, comm)
     implicit none
     complex(8), dimension (:), intent (in out) :: z
+    integer, intent (in), optional :: comm
     complex(8), dimension (size(z)) :: z1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     z1 = z
     call mpi_allreduce &
-         (z1, z, size(z), MPI_DOUBLE_COMPLEX, MPI_SUM, MPI_COMM_WORLD, ierror)
+         (z1, z, size(z), MPI_DOUBLE_COMPLEX, MPI_SUM, lcomm, ierror)
   end subroutine sum_allreduce_complex_array
 
-  subroutine max_reduce_integer (i, dest)
+  subroutine max_reduce_integer (i, dest, comm)
     implicit none
     integer, intent (in out) :: i
     integer, intent (in) :: dest
-    integer :: i1, ierror
+    integer, intent (in), optional :: comm
+    integer :: i1, ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_reduce &
-         (i1, i, 1, MPI_INTEGER, MPI_MAX, dest, MPI_COMM_WORLD, ierror)
+         (i1, i, 1, MPI_INTEGER, MPI_MAX, dest, lcomm, ierror)
   end subroutine max_reduce_integer
 
-  subroutine max_reduce_integer_array (i, dest)
+  subroutine max_reduce_integer_array (i, dest, comm)
     implicit none
     integer, dimension (:), intent (in out) :: i
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     integer, dimension (size(i)) :: i1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_reduce &
-         (i1, i, size(i), MPI_INTEGER, MPI_MAX, dest, MPI_COMM_WORLD, ierror)
+         (i1, i, size(i), MPI_INTEGER, MPI_MAX, dest, lcomm, ierror)
   end subroutine max_reduce_integer_array
 
-  subroutine max_reduce_real (a, dest)
+  subroutine max_reduce_real (a, dest, comm)
     implicit none
     real(8), intent (in out) :: a
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     real(8) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_reduce &
-         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_MAX, dest, MPI_COMM_WORLD, ierror)
+         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_MAX, dest, lcomm, ierror)
   end subroutine max_reduce_real
 
-  subroutine max_reduce_real_array (a, dest)
+  subroutine max_reduce_real_array (a, dest, comm)
     implicit none
     real(8), dimension (:), intent (in out) :: a
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     real(8), dimension (size(a)) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_reduce &
-         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_MAX, dest, MPI_COMM_WORLD, ierror)
+         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_MAX, dest, lcomm, ierror)
   end subroutine max_reduce_real_array
 
-  subroutine max_allreduce_integer (i)
+  subroutine max_allreduce_integer (i, comm)
     implicit none
     integer, intent (in out) :: i
-    integer :: i1, ierror
+    integer, intent (in), optional :: comm
+    integer :: i1, ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_allreduce &
-         (i1, i, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierror)
+         (i1, i, 1, MPI_INTEGER, MPI_MAX, lcomm, ierror)
   end subroutine max_allreduce_integer
 
-  subroutine max_allreduce_integer_array (i)
+  subroutine max_allreduce_integer_array (i, comm)
     implicit none
     integer, dimension (:), intent (in out) :: i
+    integer, intent (in), optional :: comm
     integer, dimension (size(i)) :: i1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_allreduce &
-         (i1, i, size(i), MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierror)
+         (i1, i, size(i), MPI_INTEGER, MPI_MAX, lcomm, ierror)
   end subroutine max_allreduce_integer_array
 
-  subroutine max_allreduce_real (a)
+  subroutine max_allreduce_real (a, comm)
     implicit none
     real(8), intent (in out) :: a
+    integer, intent (in), optional :: comm
     real(8) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_allreduce &
-         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, ierror)
+         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_MAX, lcomm, ierror)
   end subroutine max_allreduce_real
 
-  subroutine max_allreduce_real_array (a)
+  subroutine max_allreduce_real_array (a, comm)
     implicit none
     real(8), dimension (:), intent (in out) :: a
+    integer, intent (in), optional :: comm
     real(8), dimension (size(a)) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_allreduce &
-         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, ierror)
+         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_MAX, lcomm, ierror)
   end subroutine max_allreduce_real_array
 
-  subroutine min_reduce_integer (i, dest)
+  subroutine min_reduce_integer (i, dest, comm)
     implicit none
     integer, intent (in out) :: i
     integer, intent (in) :: dest
-    integer :: i1, ierror
+    integer, intent (in), optional :: comm
+    integer :: i1, ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_reduce &
-         (i1, i, 1, MPI_INTEGER, MPI_MIN, dest, MPI_COMM_WORLD, ierror)
+         (i1, i, 1, MPI_INTEGER, MPI_MIN, dest, lcomm, ierror)
   end subroutine min_reduce_integer
 
-  subroutine min_reduce_integer_array (i, dest)
+  subroutine min_reduce_integer_array (i, dest, comm)
     implicit none
     integer, dimension (:), intent (in out) :: i
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     integer, dimension (size(i)) :: i1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_reduce &
-         (i1, i, size(i), MPI_INTEGER, MPI_MIN, dest, MPI_COMM_WORLD, ierror)
+         (i1, i, size(i), MPI_INTEGER, MPI_MIN, dest, lcomm, ierror)
   end subroutine min_reduce_integer_array
 
-  subroutine min_reduce_real (a, dest)
+  subroutine min_reduce_real (a, dest, comm)
     implicit none
     real(8), intent (in out) :: a
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     real(8) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_reduce &
-         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_MIN, dest, MPI_COMM_WORLD, ierror)
+         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_MIN, dest, lcomm, ierror)
   end subroutine min_reduce_real
 
-  subroutine min_reduce_real_array (a, dest)
+  subroutine min_reduce_real_array (a, dest, comm)
     implicit none
     real(8), dimension (:), intent (in out) :: a
     integer, intent (in) :: dest
+    integer, intent (in), optional :: comm
     real(8), dimension (size(a)) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_reduce &
-         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_MIN, dest, MPI_COMM_WORLD, ierror)
+         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_MIN, dest, lcomm, ierror)
   end subroutine min_reduce_real_array
 
-  subroutine min_allreduce_integer (i)
+  subroutine min_allreduce_integer (i, comm)
     implicit none
     integer, intent (in out) :: i
-    integer :: i1, ierror
+    integer, intent (in), optional :: comm
+    integer :: i1, ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_allreduce &
-         (i1, i, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, ierror)
+         (i1, i, 1, MPI_INTEGER, MPI_MIN, lcomm, ierror)
   end subroutine min_allreduce_integer
 
-  subroutine min_allreduce_integer_array (i)
+  subroutine min_allreduce_integer_array (i, comm)
     implicit none
     integer, dimension (:), intent (in out) :: i
+    integer, intent (in), optional :: comm
     integer, dimension (size(i)) :: i1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     i1 = i
     call mpi_allreduce &
-         (i1, i, size(i), MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, ierror)
+         (i1, i, size(i), MPI_INTEGER, MPI_MIN, lcomm, ierror)
   end subroutine min_allreduce_integer_array
 
-  subroutine min_allreduce_real (a)
+  subroutine min_allreduce_real (a, comm)
     implicit none
     real(8), intent (in out) :: a
+    integer, intent (in), optional :: comm
     real(8) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_allreduce &
-         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierror)
+         (a1, a, 1, MPI_DOUBLE_PRECISION, MPI_MIN, lcomm, ierror)
   end subroutine min_allreduce_real
 
-  subroutine min_allreduce_real_array (a)
+  subroutine min_allreduce_real_array (a, comm)
     implicit none
     real(8), dimension (:), intent (in out) :: a
+    integer, intent (in), optional :: comm
     real(8), dimension (size(a)) :: a1
-    integer :: ierror
+    integer :: ierror, lcomm
+    lcomm = MPI_COMM_WORLD
+    if (present(comm)) lcomm = comm
     a1 = a
     call mpi_allreduce &
-         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierror)
+         (a1, a, size(a), MPI_DOUBLE_PRECISION, MPI_MIN, lcomm, ierror)
   end subroutine min_allreduce_real_array
 
 ! ********************* barrier **********************

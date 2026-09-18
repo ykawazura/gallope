@@ -1,0 +1,991 @@
+cd src; make
+make[1]: Entering directory '/work/gr96/o07001/gallope_performance/src'
+mpif90 -c time_stamp.F90 -o time_stamp.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+mpif90 -c file.F90 -o file.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+mpif90 -c model/MHD_INCOMP/params.F90 -o model/MHD_INCOMP/params.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+read_parameters:
+    100, Generating update device(eta,nu)
+    101, Generating update device(eta_h,nu_h)
+    102, Generating update device(eta_h_exp,nu_h_exp)
+    103, Generating update device(shear,q)
+mpif90 -c mp.F90 -o mp.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+mpif90 -c mpiio.F90 -o mpiio.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+mpif90 -c terminate.F90 -o terminate.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+mpif90 -c grid.F90 -o grid.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+init_grid:
+    221, Generating update device(ly,lx,lz)
+    222, Generating update device(nlz,nlx,nly,nlx_local,nlz_padded)
+    223, Generating update device(nky,nky_local,nkx,nkz)
+    224, Generating update device(ntot)
+    225, Generating update device(yy(:),xx(:),zz(:))
+    226, Generating update device(ky(:),kx(:),kz(:))
+    227, Generating update device(ky_max,kx_max,kz_max)
+    228, Generating update device(k2(:,:,:),k2_max,k2inv(:,:,:))
+    229, Generating update device(kz2(:),kprp2(:,:,:),kprp2inv(:,:,:),kprp2_max,kz2_max)
+    230, Generating update device(iky(:),ikx(:),ikz(:))
+    231, Generating update device(dky,dkx,dlz,dly,dlx,dkz)
+mpif90 -c cuFFTmp.F90 -o cuFFTmp.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+ftran_r2c:
+    154, Generating present(ur(:,:,:))
+         Generating NVIDIA GPU code
+        155, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        156,   ! blockidx%x threadidx%x collapsed
+        157,   ! blockidx%x threadidx%x collapsed
+    174, Generating present(uk(:,:,:))
+         Generating NVIDIA GPU code
+        175, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        176,   ! blockidx%x threadidx%x collapsed
+        177,   ! blockidx%x threadidx%x collapsed
+btran_c2r:
+    215, Generating present(uk(:,:,:))
+         Generating NVIDIA GPU code
+        216, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        217,   ! blockidx%x threadidx%x collapsed
+        218,   ! blockidx%x threadidx%x collapsed
+    235, Generating present(ur(:,:,:))
+         Generating NVIDIA GPU code
+        236, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        237,   ! blockidx%x threadidx%x collapsed
+        238,   ! blockidx%x threadidx%x collapsed
+mpif90 -c time.F90 -o time.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+init_time:
+     48, Generating update device(cfl,tt,dt)
+mpif90 -c utils.F90 -o utils.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+curl:
+     74, Generating present(curlfz(:,:,:),fx(:,:,:),fz(:,:,:),fy(:,:,:),curlfx(:,:,:),curlfy(:,:,:))
+         Generating NVIDIA GPU code
+         75, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+         76,   ! blockidx%x threadidx%x collapsed
+         77,   ! blockidx%x threadidx%x collapsed
+mpif90 -c dealias.F90 -o dealias.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+init_filter:
+     51, Generating update device(filter(:,:,:))
+mpif90 -c shearing_box.F90 -o shearing_box.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+init_shearing_time:
+     79, Generating update device(shear_flg)
+     80, Generating update device(tremap,tsc)
+     81, Generating update device(nremap)
+     82, Generating update device(kxt_old1(:,:),kxt(:,:),k2t_inv(:,:,:),k2t(:,:,:))
+remap_fld:
+    116, Generating enter data create(tmp(:,:,:))
+         Generating enter data copyin(ikx_to_index(:))
+    117, Generating present(fld(:,:,:),tmp(:,:,:),ikx_to_index(:))
+    119, Generating NVIDIA GPU code
+        120, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        121,   ! blockidx%x threadidx%x collapsed
+        122,   ! blockidx%x threadidx%x collapsed
+    122, Generating implicit firstprivate(ikx_min,ikx_max)
+    134, Generating NVIDIA GPU code
+        135, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        136,   ! blockidx%x threadidx%x collapsed
+        137,   ! blockidx%x threadidx%x collapsed
+    144, Generating exit data delete(tmp(:,:,:),ikx_to_index(:))
+to_non_shearing_coordinate:
+    166, Generating update self(tsc,shear_flg)
+    172, Generating present(fld(:,:,:))
+         Generating create(tmp(:,:,:)) [if not already present]
+    174, Generating copyin(tsc_local,shear_flg_local) [if not already present]
+         Generating NVIDIA GPU code
+        176, !$acc loop gang ! blockidx%x
+        179, !$acc loop vector(128) collapse(2) ! threadidx%x
+        180,   ! threadidx%x collapsed
+    179, Loop is parallelizable
+    180, Loop is parallelizable
+    189, Generating NVIDIA GPU code
+        190, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        191,   ! blockidx%x threadidx%x collapsed
+        192,   ! blockidx%x threadidx%x collapsed
+get_imp_terms_tintg_with_shear:
+    210, Generating acc routine seq
+         Generating NVIDIA GPU code
+mpif90 -c model/MHD_INCOMP/fields.F90 -o model/MHD_INCOMP/fields.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+init_fields:
+     67, Generating update device(uy(:,:,:),ux(:,:,:),uz(:,:,:))
+     68, Generating update device(by(:,:,:),bx(:,:,:),bz(:,:,:))
+     69, Generating update device(uy_old(:,:,:),ux_old(:,:,:),uz_old(:,:,:))
+     70, Generating update device(bz_old(:,:,:),by_old(:,:,:),bx_old(:,:,:))
+init_single_mode:
+    178, Generating enter data create(ux_r(:,:,:))
+    179, Generating enter data create(uy_r(:,:,:))
+    180, Generating enter data create(uz_r(:,:,:))
+    181, Generating enter data create(bx_r(:,:,:))
+    182, Generating enter data create(by_r(:,:,:))
+    183, Generating enter data create(bz_r(:,:,:))
+    190, Generating present(bz_r(:,:,:),ux_r(:,:,:),uz_r(:,:,:),uy_r(:,:,:),bx_r(:,:,:),by_r(:,:,:))
+    191, Generating NVIDIA GPU code
+        192, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        193,   ! blockidx%x threadidx%x collapsed
+        194,   ! blockidx%x threadidx%x collapsed
+    206, Generating update self(by_r(:,:,:),bx_r(:,:,:),uz_r(:,:,:),uy_r(:,:,:),ux_r(:,:,:),bz_r(:,:,:))
+    215, Generating present(bz_r(:,:,:),ux_r(:,:,:),uz_r(:,:,:),uy_r(:,:,:),bx_r(:,:,:),by_r(:,:,:))
+    225, Generating NVIDIA GPU code
+        226, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        227,   ! blockidx%x threadidx%x collapsed
+        228,   ! blockidx%x threadidx%x collapsed
+    240, Generating update self(by(:,:,:),bx(:,:,:),uz(:,:,:),uy(:,:,:),ux(:,:,:),bz(:,:,:))
+    249, Generating present(bz_r(:,:,:),ux_r(:,:,:),uz_r(:,:,:),uy_r(:,:,:),bx_r(:,:,:),by_r(:,:,:))
+    258, Generating update self(by_r(:,:,:),bx_r(:,:,:),uz_r(:,:,:),uy_r(:,:,:),ux_r(:,:,:),bz_r(:,:,:))
+    364, Generating exit data delete(ux_r(:,:,:))
+    365, Generating exit data delete(uy_r(:,:,:))
+    366, Generating exit data delete(uz_r(:,:,:))
+    367, Generating exit data delete(bx_r(:,:,:))
+    368, Generating exit data delete(by_r(:,:,:))
+    369, Generating exit data delete(bz_r(:,:,:))
+init_random:
+    433, Generating enter data copyin(u1(:),kmin(:),b0(:),b1(:),kmax(:))
+    442, Generating enter data create(ux_r(:,:,:))
+    443, Generating enter data create(uy_r(:,:,:))
+    444, Generating enter data create(uz_r(:,:,:))
+    445, Generating enter data create(bx_r(:,:,:))
+    446, Generating enter data create(by_r(:,:,:))
+    447, Generating enter data create(bz_r(:,:,:))
+    469, Generating update device(ux_r(:,:,:))
+    470, Generating update device(uy_r(:,:,:))
+    471, Generating update device(uz_r(:,:,:))
+    472, Generating update device(bx_r(:,:,:))
+    473, Generating update device(by_r(:,:,:))
+    474, Generating update device(bz_r(:,:,:))
+    480, Generating present(bz_r(:,:,:),ux_r(:,:,:),uz_r(:,:,:),uy_r(:,:,:),bx_r(:,:,:),by_r(:,:,:))
+    490, Generating NVIDIA GPU code
+        491, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        492,   ! blockidx%x threadidx%x collapsed
+        493,   ! blockidx%x threadidx%x collapsed
+    505, Generating present(kmin(:),kmax(:))
+    506, Generating NVIDIA GPU code
+        507, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        508,   ! blockidx%x threadidx%x collapsed
+        509,   ! blockidx%x threadidx%x collapsed
+    583, Generating update self(by(:,:,:),bx(:,:,:),uz(:,:,:),uy(:,:,:),ux(:,:,:),bz(:,:,:))
+    586, Generating update device(by(:,:,:),bx(:,:,:),uz(:,:,:),uy(:,:,:),ux(:,:,:),bz(:,:,:))
+    591, Generating present(ux_r(:,:,:),uz_r(:,:,:),uy_r(:,:,:))
+    597, Generating update self(uz_r(:,:,:),uy_r(:,:,:),ux_r(:,:,:))
+    601, Generating enter data copyin(rms)
+    603, Generating present(u1(:),ux_r(:,:,:),uz_r(:,:,:),uy_r(:,:,:),rms)
+    604, Generating NVIDIA GPU code
+        605, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        606,   ! blockidx%x threadidx%x collapsed
+        607,   ! blockidx%x threadidx%x collapsed
+    616, Generating present(ux_r(:,:,:),uz_r(:,:,:),uy_r(:,:,:))
+    623, Generating NVIDIA GPU code
+        624, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        625,   ! blockidx%x threadidx%x collapsed
+        626,   ! blockidx%x threadidx%x collapsed
+    638, Generating present(bx_r(:,:,:),bz_r(:,:,:),by_r(:,:,:))
+    644, Generating update self(bz_r(:,:,:),by_r(:,:,:),bx_r(:,:,:))
+    648, Generating update device(rms)
+    651, Generating present(b1(:),bx_r(:,:,:),by_r(:,:,:),b0(:),rms,bz_r(:,:,:))
+    652, Generating NVIDIA GPU code
+        653, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        654,   ! blockidx%x threadidx%x collapsed
+        655,   ! blockidx%x threadidx%x collapsed
+    664, Generating present(b1(:),bx_r(:,:,:),by_r(:,:,:),b0(:),rms,bz_r(:,:,:))
+    665, Generating NVIDIA GPU code
+        666, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        667,   ! blockidx%x threadidx%x collapsed
+        668,   ! blockidx%x threadidx%x collapsed
+    678, Generating present(bx_r(:,:,:),bz_r(:,:,:),by_r(:,:,:))
+    685, Generating NVIDIA GPU code
+        686, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        687,   ! blockidx%x threadidx%x collapsed
+        688,   ! blockidx%x threadidx%x collapsed
+    697, Generating update self(by(:,:,:),bx(:,:,:),uz(:,:,:),uy(:,:,:),ux(:,:,:),bz(:,:,:))
+    701, Generating exit data delete(ux_r(:,:,:))
+    702, Generating exit data delete(uy_r(:,:,:))
+    703, Generating exit data delete(uz_r(:,:,:))
+    704, Generating exit data delete(bx_r(:,:,:))
+    705, Generating exit data delete(by_r(:,:,:))
+    706, Generating exit data delete(bz_r(:,:,:))
+    714, Generating exit data delete(kmin(:),b0(:),b1(:),kmax(:),u1(:))
+    715, Generating exit data delete(rms)
+init_ot2:
+    747, Generating enter data create(ux_r(:,:,:))
+    748, Generating enter data create(uy_r(:,:,:))
+    749, Generating enter data create(bx_r(:,:,:))
+    750, Generating enter data create(by_r(:,:,:))
+    752, Generating implicit copyout(by_r(1:nlz_padded,1:nly,1:nlx_local),uy_r(1:nlz_padded,1:nly,1:nlx_local),ux_r(1:nlz_padded,1:nly,1:nlx_local),bx_r(1:nlz_padded,1:nly,1:nlx_local)) [if not already present]
+         Generating NVIDIA GPU code
+        753, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        754,   ! blockidx%x threadidx%x collapsed
+        755,   ! blockidx%x threadidx%x collapsed
+    770, Generating NVIDIA GPU code
+        771, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        772,   ! blockidx%x threadidx%x collapsed
+        773,   ! blockidx%x threadidx%x collapsed
+    782, Generating NVIDIA GPU code
+        783, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        784,   ! blockidx%x threadidx%x collapsed
+        785,   ! blockidx%x threadidx%x collapsed
+    796, Generating exit data delete(ux_r(:,:,:))
+    797, Generating exit data delete(uy_r(:,:,:))
+    798, Generating exit data delete(bx_r(:,:,:))
+    799, Generating exit data delete(by_r(:,:,:))
+restart:
+    842, Generating update device(tsc,tt)
+    871, Generating update device(by(:,:,:),bx(:,:,:),uy(:,:,:),ux(:,:,:),bz(:,:,:),uz(:,:,:))
+    872, Generating update device(by_old(:,:,:),bx_old(:,:,:),uz_old(:,:,:),uy_old(:,:,:),ux_old(:,:,:),bz_old(:,:,:))
+mpif90 -c model/MHD_INCOMP/force.F90 -o model/MHD_INCOMP/force.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+read_parameters:
+      2, include 'force_common.F90'
+         106, Generating update device(ene_inj,res_inj,xhl_inj)
+         187, Generating update device(a_force(:,:),kz_stir(:,:),ky_stir(:,:),b_force(:,:),kx_stir(:,:))
+update_force:
+      2, include 'force_common.F90'
+         243, Generating update device(b_force(:,:),a_force(:,:))
+get_force:
+      2, include 'force_common.F90'
+         274, Generating present(u(:,:,:))
+              Generating implicit firstprivate(nk_stir)
+              Generating NVIDIA GPU code
+             275, !$acc loop gang, vector(128) ! blockidx%x threadidx%x
+         275, Generating implicit firstprivate(i,k,j,ifield)
+is_forced:
+      2, include 'force_common.F90'
+zeroing_at_forcing_wavenumber:
+      2, include 'force_common.F90'
+init_ranf:
+      2, include 'force_common.F90'
+ranf:
+      2, include 'force_common.F90'
+alloc_force:
+     70, Generating update device(fuy(:,:,:),fux(:,:,:),fuz(:,:,:))
+     71, Generating update device(fby(:,:,:),fbx(:,:,:),fbz(:,:,:))
+     72, Generating update device(fuy_old(:,:,:),fux_old(:,:,:),fuz_old(:,:,:))
+     73, Generating update device(fby_old(:,:,:),fbx_old(:,:,:),fbz_old(:,:,:))
+     74, Generating update device(fzmy(:,:,:),fzmx(:,:,:),fzpz(:,:,:),fzpy(:,:,:),fzpx(:,:,:),fzmz(:,:,:))
+normalize_force:
+    107, Generating present(fbz(:,:,:),fux(:,:,:),fuy(:,:,:),fuz(:,:,:),fbx(:,:,:),fby(:,:,:))
+         Generating create(p_ext_ene(:,:,:)) [if not already present]
+    108, Generating NVIDIA GPU code
+        109, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+             Generating reduction(+:p_ext_ene_sum)
+        110,   ! blockidx%x threadidx%x collapsed
+        111,   ! blockidx%x threadidx%x collapsed
+    108, Generating implicit copy(p_ext_ene_sum) [if not already present]
+    142, Generating present(fbz(:,:,:),fux(:,:,:),fuy(:,:,:),fuz(:,:,:),fbx(:,:,:),fby(:,:,:))
+         Generating copyin(p_ext_ene_sum) [if not already present]
+         Generating NVIDIA GPU code
+        143, !$acc loop gang ! blockidx%x
+        144, !$acc loop seq
+        145, !$acc loop vector(128) ! threadidx%x
+    144, Loop is parallelizable
+    145, Loop is parallelizable
+normalize_force_els:
+    195, Generating present(fzmz(:,:,:),fzpx(:,:,:),fzpy(:,:,:),fzpz(:,:,:),fzmx(:,:,:),fzmy(:,:,:))
+         Generating create(zm_dot_fzm(:,:,:),zp_dot_fzp(:,:,:)) [if not already present]
+    196, Generating NVIDIA GPU code
+        197, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+             Generating reduction(+:zp_dot_fzp_sum,zm_dot_fzm_sum)
+        198,   ! blockidx%x threadidx%x collapsed
+        199,   ! blockidx%x threadidx%x collapsed
+    196, Generating implicit copy(zp_dot_fzp_sum,zm_dot_fzm_sum) [if not already present]
+    199, Generating implicit firstprivate(zmz,zpx,zpz,zpy,zmx,zmy)
+    242, Generating present(fzmz(:,:,:),fzpx(:,:,:),fzpz(:,:,:),fzpy(:,:,:),fzmx(:,:,:),fzmy(:,:,:))
+         Generating copyin(zp_dot_fzp_sum,zm_dot_fzm_sum) [if not already present]
+         Generating NVIDIA GPU code
+        243, !$acc loop gang ! blockidx%x
+        244, !$acc loop seq
+        245, !$acc loop vector(128) ! threadidx%x
+    244, Loop is parallelizable
+    245, Loop is parallelizable
+mpif90 -c model/MHD_INCOMP/MHD_INCOMP_specific.F90 -o model/MHD_INCOMP/MHD_INCOMP_specific.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+init_model_specific:
+     41, Generating NVIDIA GPU code
+         42, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+             Generating reduction(+:bx0,by0,bz0)
+         43,   ! blockidx%x threadidx%x collapsed
+         44,   ! blockidx%x threadidx%x collapsed
+     41, Generating implicit copy(bx0,bz0,by0) [if not already present]
+mpif90 -c model/MHD_INCOMP/io.F90 -o model/MHD_INCOMP/io.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+save_restart:
+   1043, Generating update self(by(:,:,:),bx(:,:,:),uz(:,:,:),uy(:,:,:),ux(:,:,:),bz(:,:,:))
+mpif90 -c model/MHD_INCOMP/diagnostics.F90 -o model/MHD_INCOMP/diagnostics.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+read_parameters:
+      2, include 'diagnostics_common.F90'
+         114, Generating update device(series_modes(:,:))
+init_polar_spectrum_2d:
+      2, include 'diagnostics_common.F90'
+         141, Generating update device(nkpolar,kpbin(:))
+init_polar_spectrum_3d:
+      2, include 'diagnostics_common.F90'
+         174, Generating update device(kpbin(:),kpbin_log(:),nkpolar_log,nkpolar,kpolar_log_sep)
+get_polar_spectrum_2d:
+      2, include 'diagnostics_common.F90'
+get_polar_spectrum_3d:
+      2, include 'diagnostics_common.F90'
+         245, Generating NVIDIA GPU code
+             246, !$acc loop gang, vector(128) ! blockidx%x threadidx%x
+         245, Generating default present(ebin(:nkpolar))
+         253, Generating NVIDIA GPU code
+             254, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+             255,   ! blockidx%x threadidx%x collapsed
+             256,   ! blockidx%x threadidx%x collapsed
+         253, Generating default present(ebin(:),ee(:nkz,:nky_local,:nkx))
+         278, Generating update self(ebin(:))
+         284, Generating update device(ebin(:))
+write_polar_spectrum_2d_in_3d:
+      2, include 'diagnostics_common.F90'
+cut_2d_r:
+      2, include 'diagnostics_common.F90'
+cut_2d_k:
+      2, include 'diagnostics_common.F90'
+loop_diagnostics:
+    162, Generating enter data create(by2(:,:,:),bx2(:,:,:),b2(:,:,:),uy2(:,:,:),ux2(:,:,:),u2(:,:,:),bz2(:,:,:),uz2(:,:,:))
+    163, Generating enter data create(b2old(:,:,:),b2dissip(:,:,:),u2dissip(:,:,:),u2old(:,:,:))
+    164, Generating enter data create(p_re(:,:,:),zm2(:,:,:),p_ext_xhl(:,:,:),p_ma(:,:,:),p_ext_ene(:,:,:),zp2(:,:,:))
+    165, Generating enter data create(uy2_bin(:),ux2_bin(:),u2_bin(:),uz2_bin(:))
+    166, Generating enter data create(by2_bin(:),bx2_bin(:),b2_bin(:),bz2_bin(:))
+    167, Generating enter data create(b2dissip_bin(:),u2dissip_bin(:),zm2_bin(:),zp2_bin(:))
+    168, Generating enter data create(p_re_bin(:),p_ma_bin(:))
+    187, Generating NVIDIA GPU code
+        194, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+             Generating reduction(+:p_re_sum,u2dissip_sum,b2dissip_sum,u2_sum,b2_sum,b2dot_sum,p_ext_ene_sum,p_ma_sum,p_ext_xhl_sum,zp2_sum,zm2_sum,u2dot_sum)
+        195,   ! blockidx%x threadidx%x collapsed
+        196,   ! blockidx%x threadidx%x collapsed
+    187, Generating default present(p_ext_xhl(1:nkz,1:nky_local,1:nkx),p_ma(1:nkz,1:nky_local,1:nkx),p_ext_ene(1:nkz,1:nky_local,1:nkx),bz2(1:nkz,1:nky_local,1:nkx),b2(1:nkz,1:nky_local,1:nkx),u2(1:nkz,1:nky_local,1:nkx),uz2(1:nkz,1:nky_local,1:nkx),zp2(1:nkz,1:nky_local,1:nkx),zm2(1:nkz,1:nky_local,1:nkx),b2dissip(1:nkz,1:nky_local,1:nkx),u2dissip(1:nkz,1:nky_local,1:nkx),by2(1:nkz,1:nky_local,1:nkx),bx2(1:nkz,1:nky_local,1:nkx),b2old(1:nkz,1:nky_local,1:nkx),uy2(1:nkz,1:nky_local,1:nkx),ux2(1:nkz,1:nky_local,1:nkx),u2old(1:nkz,1:nky_local,1:nkx),p_re(1:nkz,1:nky_local,1:nkx))
+         Generating implicit copy(p_re_sum,u2dissip_sum,b2dissip_sum,u2_sum,b2_sum,b2dot_sum,p_ext_ene_sum,p_ma_sum,p_ext_xhl_sum,zp2_sum,zm2_sum,u2dot_sum) [if not already present]
+    196, Generating implicit firstprivate(bx0,bz0,by0)
+    298, Generating NVIDIA GPU code
+        300, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+             Generating reduction(+:bx0,by0,bz0)
+        301,   ! blockidx%x threadidx%x collapsed
+        302,   ! blockidx%x threadidx%x collapsed
+    298, Generating implicit copy(bx0,bz0,by0) [if not already present]
+    344, Generating update self(uy2_bin(:),ux2_bin(:),u2_bin(:),uz2_bin(:))
+    345, Generating update self(by2_bin(:),bx2_bin(:),b2_bin(:),bz2_bin(:))
+    346, Generating update self(b2dissip_bin(:),u2dissip_bin(:),zm2_bin(:),zp2_bin(:))
+    347, Generating update self(p_re_bin(:),p_ma_bin(:))
+    367, Generating exit data delete(by2(:,:,:),bx2(:,:,:),b2(:,:,:),uy2(:,:,:),ux2(:,:,:),u2(:,:,:),bz2(:,:,:),uz2(:,:,:))
+    368, Generating exit data delete(b2old(:,:,:),b2dissip(:,:,:),u2dissip(:,:,:),u2old(:,:,:))
+    369, Generating exit data delete(p_re(:,:,:),zm2(:,:,:),p_ext_xhl(:,:,:),p_ma(:,:,:),p_ext_ene(:,:,:),zp2(:,:,:))
+    370, Generating exit data delete(uy2_bin(:),ux2_bin(:),u2_bin(:),uz2_bin(:))
+    371, Generating exit data delete(by2_bin(:),bx2_bin(:),b2_bin(:),bz2_bin(:))
+    372, Generating exit data delete(b2dissip_bin(:),u2dissip_bin(:),zm2_bin(:),zp2_bin(:))
+    373, Generating exit data delete(p_re_bin(:),p_ma_bin(:))
+loop_diagnostics_2d:
+    461, Generating enter data create(f(:,:,:))
+    462, Generating enter data create(fr(:,:,:))
+    523, Generating enter data create(wx(:,:,:))
+    524, Generating enter data create(wy(:,:,:))
+    525, Generating enter data create(wz(:,:,:))
+    526, Generating enter data create(jx(:,:,:))
+    527, Generating enter data create(jy(:,:,:))
+    528, Generating enter data create(jz(:,:,:))
+    549, Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    550, Loop is parallelizable
+         Generating NVIDIA GPU code
+        550,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    554, Generating update self(fr(:,:,:))
+    557, Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    558, Loop is parallelizable
+         Generating NVIDIA GPU code
+        558,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    562, Generating update self(fr(:,:,:))
+    565, Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    566, Loop is parallelizable
+         Generating NVIDIA GPU code
+        566,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    570, Generating update self(fr(:,:,:))
+    573, Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    574, Loop is parallelizable
+         Generating NVIDIA GPU code
+        574,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    578, Generating update self(fr(:,:,:))
+    581, Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    582, Loop is parallelizable
+         Generating NVIDIA GPU code
+        582,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    586, Generating update self(fr(:,:,:))
+    589, Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    590, Loop is parallelizable
+         Generating NVIDIA GPU code
+        590,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    594, Generating update self(fr(:,:,:))
+    597, Generating implicit copyin(wx(1:z_b_1_2-z_b_0_2+1,1:z_b_4_1-z_b_3_1+1,1:z_b_7_1-z_b_6_1+1)) [if not already present]
+         Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    598, Loop is parallelizable
+         Generating NVIDIA GPU code
+        598,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    602, Generating update self(fr(:,:,:))
+    605, Generating implicit copyin(wy(1:z_b_1_2-z_b_0_2+1,1:z_b_4_1-z_b_3_1+1,1:z_b_7_1-z_b_6_1+1)) [if not already present]
+         Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    606, Loop is parallelizable
+         Generating NVIDIA GPU code
+        606,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    610, Generating update self(fr(:,:,:))
+    613, Generating implicit copyin(wz(1:z_b_1_2-z_b_0_2+1,1:z_b_4_1-z_b_3_1+1,1:z_b_7_1-z_b_6_1+1)) [if not already present]
+         Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    614, Loop is parallelizable
+         Generating NVIDIA GPU code
+        614,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    618, Generating update self(fr(:,:,:))
+    621, Generating implicit copyin(jx(1:z_b_1_2-z_b_0_2+1,1:z_b_4_1-z_b_3_1+1,1:z_b_7_1-z_b_6_1+1)) [if not already present]
+         Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    622, Loop is parallelizable
+         Generating NVIDIA GPU code
+        622,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    626, Generating update self(fr(:,:,:))
+    629, Generating implicit copyin(jy(1:z_b_1_2-z_b_0_2+1,1:z_b_4_1-z_b_3_1+1,1:z_b_7_1-z_b_6_1+1)) [if not already present]
+         Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    630, Loop is parallelizable
+         Generating NVIDIA GPU code
+        630,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    634, Generating update self(fr(:,:,:))
+    637, Generating implicit copyin(jz(1:z_b_1_2-z_b_0_2+1,1:z_b_4_1-z_b_3_1+1,1:z_b_7_1-z_b_6_1+1)) [if not already present]
+         Generating implicit copyout(f(z_b_0_2:z_b_1_2,z_b_3_1:z_b_4_1,z_b_6_1:z_b_7_1)) [if not already present]
+    638, Loop is parallelizable
+         Generating NVIDIA GPU code
+        638,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    642, Generating update self(fr(:,:,:))
+    647, Generating update self(by(:,:,:),bx(:,:,:),uz(:,:,:),uy(:,:,:),ux(:,:,:),bz(:,:,:))
+    702, Generating exit data delete(f(:,:,:))
+    703, Generating exit data delete(fr(:,:,:))
+    755, Generating exit data delete(wx(:,:,:))
+    756, Generating exit data delete(wy(:,:,:))
+    757, Generating exit data delete(wz(:,:,:))
+    758, Generating exit data delete(jx(:,:,:))
+    759, Generating exit data delete(jy(:,:,:))
+    760, Generating exit data delete(jz(:,:,:))
+loop_diagnostics_sf2:
+    852, Generating enter data create(f(:,:,:))
+    862, Generating enter data create(bx_r(:,:,:))
+    863, Generating enter data create(by_r(:,:,:))
+    864, Generating enter data create(bz_r(:,:,:))
+    865, Generating enter data create(ux_r(:,:,:))
+    866, Generating enter data create(uy_r(:,:,:))
+    867, Generating enter data create(uz_r(:,:,:))
+    870, Generating implicit copyout(f(z_b_140:z_b_141,z_b_143:z_b_144,z_b_146:z_b_147)) [if not already present]
+    871, Loop is parallelizable
+         Generating NVIDIA GPU code
+        871,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    875, Generating implicit copyout(f(z_b_140:z_b_141,z_b_143:z_b_144,z_b_146:z_b_147)) [if not already present]
+    876, Loop is parallelizable
+         Generating NVIDIA GPU code
+        876,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    880, Generating implicit copyout(f(z_b_140:z_b_141,z_b_143:z_b_144,z_b_146:z_b_147)) [if not already present]
+    881, Loop is parallelizable
+         Generating NVIDIA GPU code
+        881,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    885, Generating implicit copyout(f(z_b_140:z_b_141,z_b_143:z_b_144,z_b_146:z_b_147)) [if not already present]
+    886, Loop is parallelizable
+         Generating NVIDIA GPU code
+        886,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    890, Generating implicit copyout(f(z_b_140:z_b_141,z_b_143:z_b_144,z_b_146:z_b_147)) [if not already present]
+    891, Loop is parallelizable
+         Generating NVIDIA GPU code
+        891,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    895, Generating implicit copyout(f(z_b_140:z_b_141,z_b_143:z_b_144,z_b_146:z_b_147)) [if not already present]
+    896, Loop is parallelizable
+         Generating NVIDIA GPU code
+        896,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+    900, Generating update self(uy_r(:,:,:),uz_r(:,:,:),ux_r(:,:,:),bz_r(:,:,:),by_r(:,:,:),bx_r(:,:,:))
+   1056, Generating exit data delete(f(:,:,:))
+   1057, Generating exit data delete(bx_r(:,:,:))
+   1058, Generating exit data delete(by_r(:,:,:))
+   1059, Generating exit data delete(bz_r(:,:,:))
+   1060, Generating exit data delete(ux_r(:,:,:))
+   1061, Generating exit data delete(uy_r(:,:,:))
+   1062, Generating exit data delete(uz_r(:,:,:))
+loop_diagnostics_kpar:
+   1172, Generating enter data create(bx0(:,:,:))
+   1173, Generating enter data create(by0(:,:,:))
+   1174, Generating enter data create(bz0(:,:,:))
+   1175, Generating enter data create(bx1(:,:,:))
+   1176, Generating enter data create(by1(:,:,:))
+   1177, Generating enter data create(bz1(:,:,:))
+   1178, Generating enter data create(ux1(:,:,:))
+   1179, Generating enter data create(uy1(:,:,:))
+   1180, Generating enter data create(uz1(:,:,:))
+   1181, Generating enter data create(dbx1_dx(:,:,:))
+   1182, Generating enter data create(dby1_dx(:,:,:))
+   1183, Generating enter data create(dbz1_dx(:,:,:))
+   1184, Generating enter data create(dbx1_dy(:,:,:))
+   1185, Generating enter data create(dby1_dy(:,:,:))
+   1186, Generating enter data create(dbz1_dy(:,:,:))
+   1187, Generating enter data create(dbx1_dz(:,:,:))
+   1188, Generating enter data create(dby1_dz(:,:,:))
+   1189, Generating enter data create(dbz1_dz(:,:,:))
+   1190, Generating enter data create(dux1_dx(:,:,:))
+   1191, Generating enter data create(duy1_dx(:,:,:))
+   1192, Generating enter data create(duz1_dx(:,:,:))
+   1193, Generating enter data create(dux1_dy(:,:,:))
+   1194, Generating enter data create(duy1_dy(:,:,:))
+   1195, Generating enter data create(duz1_dy(:,:,:))
+   1196, Generating enter data create(dux1_dz(:,:,:))
+   1197, Generating enter data create(duy1_dz(:,:,:))
+   1198, Generating enter data create(duz1_dz(:,:,:))
+   1230, Generating enter data create(bx0r(:,:,:))
+   1231, Generating enter data create(by0r(:,:,:))
+   1232, Generating enter data create(bz0r(:,:,:))
+   1233, Generating enter data create(bx1r(:,:,:))
+   1234, Generating enter data create(by1r(:,:,:))
+   1235, Generating enter data create(bz1r(:,:,:))
+   1236, Generating enter data create(ux1r(:,:,:))
+   1237, Generating enter data create(uy1r(:,:,:))
+   1238, Generating enter data create(uz1r(:,:,:))
+   1239, Generating enter data create(dbx1_dxr(:,:,:))
+   1240, Generating enter data create(dby1_dxr(:,:,:))
+   1241, Generating enter data create(dbz1_dxr(:,:,:))
+   1242, Generating enter data create(dbx1_dyr(:,:,:))
+   1243, Generating enter data create(dby1_dyr(:,:,:))
+   1244, Generating enter data create(dbz1_dyr(:,:,:))
+   1245, Generating enter data create(dbx1_dzr(:,:,:))
+   1246, Generating enter data create(dby1_dzr(:,:,:))
+   1247, Generating enter data create(dbz1_dzr(:,:,:))
+   1248, Generating enter data create(dux1_dxr(:,:,:))
+   1249, Generating enter data create(duy1_dxr(:,:,:))
+   1250, Generating enter data create(duz1_dxr(:,:,:))
+   1251, Generating enter data create(dux1_dyr(:,:,:))
+   1252, Generating enter data create(duy1_dyr(:,:,:))
+   1253, Generating enter data create(duz1_dyr(:,:,:))
+   1254, Generating enter data create(dux1_dzr(:,:,:))
+   1255, Generating enter data create(duy1_dzr(:,:,:))
+   1256, Generating enter data create(duz1_dzr(:,:,:))
+   1264, Generating enter data create(b0_gradb1_sq(:,:,:))
+   1265, Generating enter data create(b0_gradu1_sq(:,:,:))
+   1266, Generating enter data create(b0sq(:,:,:))
+   1267, Generating enter data create(b1sq(:,:,:))
+   1268, Generating enter data create(u1sq(:,:,:))
+   1285, Generating implicit copy(uz1(1:nkz,1:nky_local,1:nkx),uy1(1:nkz,1:nky_local,1:nkx),ux1(1:nkz,1:nky_local,1:nkx)) [if not already present]
+         Generating implicit copyout(duz1_dz(1:nkz,1:nky_local,1:nkx)) [if not already present]
+         Generating implicit copy(bz0(1:nkz,1:nky_local,1:nkx),by0(1:nkz,1:nky_local,1:nkx),bx0(1:nkz,1:nky_local,1:nkx),bx1(1:nkz,1:nky_local,1:nkx),by1(1:nkz,1:nky_local,1:nkx),bz1(1:nkz,1:nky_local,1:nkx)) [if not already present]
+         Generating implicit copyout(dbx1_dz(1:nkz,1:nky_local,1:nkx),dby1_dz(1:nkz,1:nky_local,1:nkx),dbx1_dx(1:nkz,1:nky_local,1:nkx),dby1_dx(1:nkz,1:nky_local,1:nkx),dbz1_dx(1:nkz,1:nky_local,1:nkx),dbx1_dy(1:nkz,1:nky_local,1:nkx),dby1_dy(1:nkz,1:nky_local,1:nkx),dbz1_dy(1:nkz,1:nky_local,1:nkx),dbz1_dz(1:nkz,1:nky_local,1:nkx),dux1_dz(1:nkz,1:nky_local,1:nkx),duy1_dz(1:nkz,1:nky_local,1:nkx),dux1_dx(1:nkz,1:nky_local,1:nkx),duy1_dx(1:nkz,1:nky_local,1:nkx),duz1_dx(1:nkz,1:nky_local,1:nkx),dux1_dy(1:nkz,1:nky_local,1:nkx),duy1_dy(1:nkz,1:nky_local,1:nkx),duz1_dy(1:nkz,1:nky_local,1:nkx)) [if not already present]
+   1286, Loop is parallelizable
+   1287, Loop is parallelizable
+   1288, Loop is parallelizable
+         Generating NVIDIA GPU code
+       1286, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1287,   ! blockidx%x threadidx%x auto-collapsed
+       1288,   ! blockidx%x threadidx%x auto-collapsed
+   1385, Generating update self(bx0r(:,:,:))
+   1386, Generating update self(by0r(:,:,:))
+   1387, Generating update self(bz0r(:,:,:))
+   1388, Generating update self(bx1r(:,:,:))
+   1389, Generating update self(by1r(:,:,:))
+   1390, Generating update self(bz1r(:,:,:))
+   1391, Generating update self(ux1r(:,:,:))
+   1392, Generating update self(uy1r(:,:,:))
+   1393, Generating update self(uz1r(:,:,:))
+   1395, Generating update self(dbx1_dxr(:,:,:))
+   1396, Generating update self(dby1_dxr(:,:,:))
+   1397, Generating update self(dbz1_dxr(:,:,:))
+   1398, Generating update self(dbx1_dyr(:,:,:))
+   1399, Generating update self(dby1_dyr(:,:,:))
+   1400, Generating update self(dbz1_dyr(:,:,:))
+   1401, Generating update self(dbx1_dzr(:,:,:))
+   1402, Generating update self(dby1_dzr(:,:,:))
+   1403, Generating update self(dbz1_dzr(:,:,:))
+   1405, Generating update self(dux1_dxr(:,:,:))
+   1406, Generating update self(duy1_dxr(:,:,:))
+   1407, Generating update self(duz1_dxr(:,:,:))
+   1408, Generating update self(dux1_dyr(:,:,:))
+   1409, Generating update self(duy1_dyr(:,:,:))
+   1410, Generating update self(duz1_dyr(:,:,:))
+   1411, Generating update self(dux1_dzr(:,:,:))
+   1412, Generating update self(duy1_dzr(:,:,:))
+   1413, Generating update self(duz1_dzr(:,:,:))
+   1479, Generating exit data delete(bx0(:,:,:))
+   1480, Generating exit data delete(by0(:,:,:))
+   1481, Generating exit data delete(bz0(:,:,:))
+   1482, Generating exit data delete(bx1(:,:,:))
+   1483, Generating exit data delete(by1(:,:,:))
+   1484, Generating exit data delete(bz1(:,:,:))
+   1485, Generating exit data delete(ux1(:,:,:))
+   1486, Generating exit data delete(uy1(:,:,:))
+   1487, Generating exit data delete(uz1(:,:,:))
+   1488, Generating exit data delete(dbx1_dx(:,:,:))
+   1489, Generating exit data delete(dby1_dx(:,:,:))
+   1490, Generating exit data delete(dbz1_dx(:,:,:))
+   1491, Generating exit data delete(dbx1_dy(:,:,:))
+   1492, Generating exit data delete(dby1_dy(:,:,:))
+   1493, Generating exit data delete(dbz1_dy(:,:,:))
+   1494, Generating exit data delete(dbx1_dz(:,:,:))
+   1495, Generating exit data delete(dby1_dz(:,:,:))
+   1496, Generating exit data delete(dbz1_dz(:,:,:))
+   1497, Generating exit data delete(dux1_dx(:,:,:))
+   1498, Generating exit data delete(duy1_dx(:,:,:))
+   1499, Generating exit data delete(duz1_dx(:,:,:))
+   1500, Generating exit data delete(dux1_dy(:,:,:))
+   1501, Generating exit data delete(duy1_dy(:,:,:))
+   1502, Generating exit data delete(duz1_dy(:,:,:))
+   1503, Generating exit data delete(dux1_dz(:,:,:))
+   1504, Generating exit data delete(duy1_dz(:,:,:))
+   1505, Generating exit data delete(duz1_dz(:,:,:))
+   1507, Generating exit data delete(bx0r(:,:,:))
+   1508, Generating exit data delete(by0r(:,:,:))
+   1509, Generating exit data delete(bz0r(:,:,:))
+   1510, Generating exit data delete(bx1r(:,:,:))
+   1511, Generating exit data delete(by1r(:,:,:))
+   1512, Generating exit data delete(bz1r(:,:,:))
+   1513, Generating exit data delete(ux1r(:,:,:))
+   1514, Generating exit data delete(uy1r(:,:,:))
+   1515, Generating exit data delete(uz1r(:,:,:))
+   1516, Generating exit data delete(dbx1_dxr(:,:,:))
+   1517, Generating exit data delete(dby1_dxr(:,:,:))
+   1518, Generating exit data delete(dbz1_dxr(:,:,:))
+   1519, Generating exit data delete(dbx1_dyr(:,:,:))
+   1520, Generating exit data delete(dby1_dyr(:,:,:))
+   1521, Generating exit data delete(dbz1_dyr(:,:,:))
+   1522, Generating exit data delete(dbx1_dzr(:,:,:))
+   1523, Generating exit data delete(dby1_dzr(:,:,:))
+   1524, Generating exit data delete(dbz1_dzr(:,:,:))
+   1525, Generating exit data delete(dux1_dxr(:,:,:))
+   1526, Generating exit data delete(duy1_dxr(:,:,:))
+   1527, Generating exit data delete(duz1_dxr(:,:,:))
+   1528, Generating exit data delete(dux1_dyr(:,:,:))
+   1529, Generating exit data delete(duy1_dyr(:,:,:))
+   1530, Generating exit data delete(duz1_dyr(:,:,:))
+   1531, Generating exit data delete(dux1_dzr(:,:,:))
+   1532, Generating exit data delete(duy1_dzr(:,:,:))
+   1533, Generating exit data delete(duz1_dzr(:,:,:))
+   1535, Generating exit data delete(b0_gradb1_sq(:,:,:))
+   1536, Generating exit data delete(b0_gradu1_sq(:,:,:))
+   1537, Generating exit data delete(b0sq(:,:,:))
+   1538, Generating exit data delete(b1sq(:,:,:))
+   1539, Generating exit data delete(u1sq(:,:,:))
+loop_diagnostics_nltrans:
+   1656, Generating enter data create(w(:,:,:,:))
+   1660, Generating enter data create(wtmp(:,:,:,:))
+   1664, Generating enter data create(w_r(:,:,:,:))
+   1667, Generating NVIDIA GPU code
+       1668, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1669,   ! blockidx%x threadidx%x collapsed
+       1670,   ! blockidx%x threadidx%x collapsed
+   1667, Generating implicit copyout(w(1:nkz,1:nky_local,1:nkx,1:6)) [if not already present]
+   1682, Generating implicit copyout(wtmp(:,:,:,:)) [if not already present]
+         Generating implicit copyin(w(:(z_b_42-z_b_41)+z_b_28_1,:(z_b_45-z_b_44)+z_b_31_1,:(z_b_48-z_b_47)+z_b_34_1,:(z_b_51-z_b_50)+z_b_37)) [if not already present]
+   1683, Loop is parallelizable
+         Generating NVIDIA GPU code
+       1683,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(4) ! blockidx%x threadidx%x
+   1690, Generating implicit copyin(wtmp(:z_b_41+(z_b_29_1-z_b_28_1),:z_b_44+(z_b_32_1-z_b_31_1),:z_b_47+(z_b_35_1-z_b_34_1),:z_b_50+(z_b_38-z_b_37))) [if not already present]
+         Generating implicit copyout(w(:,:,:,:)) [if not already present]
+   1691, Loop is parallelizable
+         Generating NVIDIA GPU code
+       1691,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(4) ! blockidx%x threadidx%x
+   1695, Generating exit data delete(wtmp(:,:,:,:))
+   1706, Generating enter data create(w_filtd(:,:,:,:))
+   1710, Generating implicit copyout(w_filtd(1:nkz,1:nky_local,1:nkx,1:6)) [if not already present]
+         Generating implicit copyin(w(1:nkz,1:nky_local,1:nkx,1:6)) [if not already present]
+   1711, Loop is parallelizable
+   1712, Loop is parallelizable
+   1713, Loop is parallelizable
+         Generating implicit private(filter)
+         Generating NVIDIA GPU code
+       1711, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1712,   ! blockidx%x threadidx%x auto-collapsed
+       1713,   ! blockidx%x threadidx%x auto-collapsed
+       1729, !$acc loop seq
+   1729, Loop is parallelizable
+   1740, Generating enter data create(w_filtd_r(:,:,:,:))
+   1749, Generating exit data delete(w_filtd(:,:,:,:))
+   1755, Generating enter data create(flx_r(:,:,:,:))
+   1758, Generating NVIDIA GPU code
+       1759, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1760,   ! blockidx%x threadidx%x collapsed
+       1761,   ! blockidx%x threadidx%x collapsed
+   1758, Generating implicit copyout(flx_r(1:nlz_padded,1:nly,1:nlx_local,1:36)) [if not already present]
+         Generating implicit copyin(w_r(1:nlz_padded,1:nly,1:nlx_local,1:6),w_filtd_r(1:nlz_padded,1:nly,1:nlx_local,1:6)) [if not already present]
+   1819, Generating exit data delete(w_filtd_r(:,:,:,:))
+   1825, Generating enter data create(flx(:,:,:,:))
+   1833, Generating exit data delete(flx_r(:,:,:,:))
+   1837, Generating implicit copy(flx(:,:,:,:)) [if not already present]
+   1838, Loop is parallelizable
+         Generating NVIDIA GPU code
+       1838,   ! blockidx%x threadidx%x auto-collapsed
+             !$acc loop gang, vector(128) collapse(4) ! blockidx%x threadidx%x
+   1843, Generating enter data create(nonlin(:,:,:,:))
+   1846, Generating NVIDIA GPU code
+       1847, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1848,   ! blockidx%x threadidx%x collapsed
+       1849,   ! blockidx%x threadidx%x collapsed
+   1846, Generating implicit copyout(nonlin(1:nkz,1:nky_local,1:nkx,1:12)) [if not already present]
+         Generating implicit copyin(flx(1:nkz,1:nky_local,1:nkx,1:36)) [if not already present]
+   1895, Generating exit data delete(flx(:,:,:,:))
+   1901, Generating NVIDIA GPU code
+       1902, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1903,   ! blockidx%x threadidx%x collapsed
+       1904,   ! blockidx%x threadidx%x collapsed
+   1901, Generating implicit copy(trans_ub(jj,ii)) [if not already present]
+         Generating implicit copyin(w(1:nkz,1:nky_local,1:nkx,1:6)) [if not already present]
+         Generating implicit copy(trans_uu(jj,ii)) [if not already present]
+         Generating implicit copyin(nonlin(1:nkz,1:nky_local,1:nkx,1:12)) [if not already present]
+         Generating implicit copy(trans_bu(jj,ii),trans_bb(jj,ii)) [if not already present]
+   1904, Generating implicit firstprivate(jj,ii,filter)
+   1960, Generating exit data delete(nonlin(:,:,:,:))
+   1982, Generating exit data delete(w(:,:,:,:))
+   1986, Generating exit data delete(w_r(:,:,:,:))
+mpif90 -c model/MHD_INCOMP/advance.F90 -o model/MHD_INCOMP/advance.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+esspifrk1:
+      2, include 'advance_common.F90'
+          24, Generating acc routine seq
+              Generating NVIDIA GPU code
+esspifrk2:
+      2, include 'advance_common.F90'
+          34, Generating acc routine seq
+              Generating NVIDIA GPU code
+esspifrk3:
+      2, include 'advance_common.F90'
+          44, Generating acc routine seq
+              Generating NVIDIA GPU code
+gear1:
+      2, include 'advance_common.F90'
+          66, Generating acc routine seq
+              Generating NVIDIA GPU code
+gear2:
+      2, include 'advance_common.F90'
+          78, Generating acc routine seq
+              Generating NVIDIA GPU code
+gear3:
+      2, include 'advance_common.F90'
+          90, Generating acc routine seq
+              Generating NVIDIA GPU code
+solve:
+    102, Generating update device(counter)
+    124, Generating NVIDIA GPU code
+        125, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        126,   ! blockidx%x threadidx%x collapsed
+        127,   ! blockidx%x threadidx%x collapsed
+    155, Generating present(bz_tmp(:,:,:),exp_terms(:,:,:,:),flx(:,:,:,:),ux_tmp(:,:,:),uz_tmp(:,:,:),uy_tmp(:,:,:),bx_tmp(:,:,:),by_tmp(:,:,:))
+    160, Generating NVIDIA GPU code
+        161, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        162,   ! blockidx%x threadidx%x collapsed
+        163,   ! blockidx%x threadidx%x collapsed
+    160, Local memory used for imp_terms_tintg0,imp_terms_tintg1
+    226, Generating present(exp_terms0(:,:,:,:),exp_terms(:,:,:,:))
+    227, Generating NVIDIA GPU code
+        228, !$acc loop gang, vector(128) collapse(4) ! blockidx%x threadidx%x
+        229,   ! blockidx%x threadidx%x collapsed
+        230,   ! blockidx%x threadidx%x collapsed
+        231,   ! blockidx%x threadidx%x collapsed
+    240, Generating present(bz_tmp(:,:,:),ux_tmp(:,:,:),uz_tmp(:,:,:),uy_tmp(:,:,:),bx_tmp(:,:,:),by_tmp(:,:,:))
+    241, Generating NVIDIA GPU code
+        242, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        243,   ! blockidx%x threadidx%x collapsed
+        244,   ! blockidx%x threadidx%x collapsed
+    274, Generating NVIDIA GPU code
+        275, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        276,   ! blockidx%x threadidx%x collapsed
+        277,   ! blockidx%x threadidx%x collapsed
+    306, Generating NVIDIA GPU code
+        307, !$acc loop gang collapse(2) ! blockidx%x
+        308,   ! blockidx%x collapsed
+        312, !$acc loop vector(128) ! threadidx%x
+    312, Loop is parallelizable
+    329, Generating present(bz_tmp(:,:,:),exp_terms(:,:,:,:),flx(:,:,:,:),ux_tmp(:,:,:),uz_tmp(:,:,:),uy_tmp(:,:,:),bx_tmp(:,:,:),by_tmp(:,:,:))
+    334, Generating NVIDIA GPU code
+        335, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        336,   ! blockidx%x threadidx%x collapsed
+        337,   ! blockidx%x threadidx%x collapsed
+    334, Local memory used for imp_terms_tintg2,imp_terms_tintg0
+    399, Generating present(bz_tmp(:,:,:),ux_tmp(:,:,:),uz_tmp(:,:,:),uy_tmp(:,:,:),bx_tmp(:,:,:),by_tmp(:,:,:))
+    400, Generating NVIDIA GPU code
+        401, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        402,   ! blockidx%x threadidx%x collapsed
+        403,   ! blockidx%x threadidx%x collapsed
+    419, Generating present(bz_tmp(:,:,:),exp_terms(:,:,:,:),exp_terms0(:,:,:,:),ux_new(:,:,:),uy_new(:,:,:),uz_tmp(:,:,:),uz_new(:,:,:),bx_new(:,:,:),by_new(:,:,:),bz_new(:,:,:),flx(:,:,:,:),ux_tmp(:,:,:),uy_tmp(:,:,:),bx_tmp(:,:,:),by_tmp(:,:,:))
+    425, Generating NVIDIA GPU code
+        426, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        427,   ! blockidx%x threadidx%x collapsed
+        428,   ! blockidx%x threadidx%x collapsed
+    425, Local memory used for imp_terms_tintg0,imp_terms_tintg3,imp_terms_tintg2
+    498, Generating NVIDIA GPU code
+        499, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        500,   ! blockidx%x threadidx%x collapsed
+        501,   ! blockidx%x threadidx%x collapsed
+    515, Generating NVIDIA GPU code
+        516, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        517,   ! blockidx%x threadidx%x collapsed
+        518,   ! blockidx%x threadidx%x collapsed
+    532, Generating present(bz_new(:,:,:),ux_new(:,:,:),uz_new(:,:,:),uy_new(:,:,:),bx_new(:,:,:),by_new(:,:,:))
+    533, Generating NVIDIA GPU code
+        534, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        535,   ! blockidx%x threadidx%x collapsed
+        536,   ! blockidx%x threadidx%x collapsed
+    569, Generating NVIDIA GPU code
+        570, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        571,   ! blockidx%x threadidx%x collapsed
+        572,   ! blockidx%x threadidx%x collapsed
+    599, Generating present(bz_old2(:,:,:),exp_terms(:,:,:,:),exp_terms_old(:,:,:,:),fbz_old2(:,:,:),ux_new(:,:,:),uy_new(:,:,:),uz_old2(:,:,:),uz_new(:,:,:),bx_new(:,:,:),by_new(:,:,:),bz_new(:,:,:),kxt_old2(:,:),ux_old2(:,:,:),uy_old2(:,:,:),bx_old2(:,:,:),by_old2(:,:,:),flx(:,:,:,:),fux_old2(:,:,:),fuy_old2(:,:,:),exp_terms_old2(:,:,:,:),fbx_old2(:,:,:),fby_old2(:,:,:),fuz_old2(:,:,:),kxt_old(:,:))
+    608, Generating NVIDIA GPU code
+        609, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        610,   ! blockidx%x threadidx%x collapsed
+        611,   ! blockidx%x threadidx%x collapsed
+    738, Generating update device(counter)
+    740, Generating NVIDIA GPU code
+        741, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        742,   ! blockidx%x threadidx%x collapsed
+        743,   ! blockidx%x threadidx%x collapsed
+        762, !$acc loop seq
+    762, Loop is parallelizable
+    771, Generating NVIDIA GPU code
+        772, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        773,   ! blockidx%x threadidx%x collapsed
+        774,   ! blockidx%x threadidx%x collapsed
+    798, Generating NVIDIA GPU code
+        799, !$acc loop gang, vector(128) collapse(2) ! blockidx%x threadidx%x
+        800,   ! blockidx%x threadidx%x collapsed
+    808, Generating NVIDIA GPU code
+        809, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        810,   ! blockidx%x threadidx%x collapsed
+        811,   ! blockidx%x threadidx%x collapsed
+    824, Generating present(bz_new(:,:,:),ux_new(:,:,:),uz_new(:,:,:),uy_new(:,:,:),bx_new(:,:,:),by_new(:,:,:))
+    825, Generating NVIDIA GPU code
+        826, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+        827,   ! blockidx%x threadidx%x collapsed
+        828,   ! blockidx%x threadidx%x collapsed
+    842, Generating update device(tt,tsc)
+    847, Generating NVIDIA GPU code
+        848, !$acc loop gang collapse(2) ! blockidx%x
+        849,   ! blockidx%x collapsed
+        853, !$acc loop vector(128) ! threadidx%x
+    853, Loop is parallelizable
+init_work_fields:
+    894, Generating NVIDIA GPU code
+        895, !$acc loop gang collapse(2) ! blockidx%x
+        896,   ! blockidx%x collapsed
+        900, !$acc loop vector(128) ! threadidx%x
+    900, Loop is parallelizable
+    942, Generating enter data copyin(ux_old2(:,:,:))
+    943, Generating enter data copyin(uy_old2(:,:,:))
+    944, Generating enter data copyin(uz_old2(:,:,:))
+    945, Generating enter data copyin(bx_old2(:,:,:))
+    946, Generating enter data copyin(by_old2(:,:,:))
+    947, Generating enter data copyin(bz_old2(:,:,:))
+    949, Generating enter data copyin(fux_old2(:,:,:))
+    950, Generating enter data copyin(fuy_old2(:,:,:))
+    951, Generating enter data copyin(fuz_old2(:,:,:))
+    952, Generating enter data copyin(fbx_old2(:,:,:))
+    953, Generating enter data copyin(fby_old2(:,:,:))
+    954, Generating enter data copyin(fbz_old2(:,:,:))
+    956, Generating enter data copyin(exp_terms_old(:,:,:,:))
+    957, Generating enter data copyin(exp_terms_old2(:,:,:,:))
+    958, Generating enter data copyin(kxt_old(:,:))
+    959, Generating enter data copyin(kxt_old2(:,:))
+get_nonlinear_terms:
+    998, Generating create(bz_rms,ux_rms,uz_rms,uy_rms,bx_rms,by_rms) [if not already present]
+   1002, Generating present(bz(:,:,:),ux(:,:,:),uy(:,:,:),bx(:,:,:),by(:,:,:),w(:,:,:,:),uz(:,:,:))
+   1003, Generating NVIDIA GPU code
+       1004, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1005,   ! blockidx%x threadidx%x collapsed
+       1006,   ! blockidx%x threadidx%x collapsed
+   1150, Generating present(w_r(:,:,:,:),flx_r(:,:,:,:))
+   1151, Generating NVIDIA GPU code
+       1152, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1153,   ! blockidx%x threadidx%x collapsed
+       1154,   ! blockidx%x threadidx%x collapsed
+   1175, Generating present(flx(:,:,:,:))
+   1176, Generating NVIDIA GPU code
+       1177, !$acc loop gang, vector(128) collapse(4) ! blockidx%x threadidx%x
+       1178,   ! blockidx%x threadidx%x collapsed
+       1179,   ! blockidx%x threadidx%x collapsed
+       1180,   ! blockidx%x threadidx%x collapsed
+get_ext_terms:
+   1197, Generating acc routine seq
+         Generating NVIDIA GPU code
+get_imp_terms_tintg:
+   1253, Generating acc routine seq
+         Generating NVIDIA GPU code
+output_series_modes:
+   1296, Generating enter data copyin(by_modes(:),bx_modes(:),uz_modes(:),uy_modes(:),ux_modes(:),bz_modes(:))
+   1299, Generating implicit firstprivate(n_series_modes)
+         Generating NVIDIA GPU code
+       1300, !$acc loop gang, vector(128) ! blockidx%x threadidx%x
+   1299, Generating implicit copy(by_modes(:n_series_modes),bx_modes(:n_series_modes),uz_modes(:n_series_modes),uy_modes(:n_series_modes),ux_modes(:n_series_modes),bz_modes(:n_series_modes)) [if not already present]
+   1322, Generating update self(by_modes(:),bx_modes(:),uz_modes(:),uy_modes(:),ux_modes(:),bz_modes(:))
+   1324, Generating exit data delete(by_modes(:),bx_modes(:),uy_modes(:),uz_modes(:),ux_modes(:),bz_modes(:))
+remap:
+   1389, Generating update device(tsc,counter)
+   1391, Generating NVIDIA GPU code
+       1392, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1393,   ! blockidx%x threadidx%x collapsed
+       1394,   ! blockidx%x threadidx%x collapsed
+   1405, Generating NVIDIA GPU code
+       1406, !$acc loop gang, vector(128) collapse(2) ! blockidx%x threadidx%x
+       1407,   ! blockidx%x threadidx%x collapsed
+   1412, Generating NVIDIA GPU code
+       1413, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1414,   ! blockidx%x threadidx%x collapsed
+       1415,   ! blockidx%x threadidx%x collapsed
+div_free:
+   1447, Generating enter data create(nbl2inv_div_w(:,:,:))
+   1449, Generating present(nbl2inv_div_w(:,:,:),wx(:,:,:),wz(:,:,:),wy(:,:,:))
+   1450, Generating NVIDIA GPU code
+       1451, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1452,   ! blockidx%x threadidx%x collapsed
+       1453,   ! blockidx%x threadidx%x collapsed
+   1466, Generating exit data delete(nbl2inv_div_w(:,:,:))
+div_free_force:
+   1491, Generating enter data create(nbl2inv_div_fw(:,:,:))
+   1494, Generating present(fwx(:,:,:),fwy(:,:,:),nbl2inv_div_fw(:,:,:),fwz(:,:,:))
+   1495, Generating implicit copy(fwx_max,fwz_max,fwy_max) [if not already present]
+         Generating NVIDIA GPU code
+       1496, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+             Generating reduction(max:fwx_max,fwy_max,fwz_max)
+       1497,   ! blockidx%x threadidx%x collapsed
+       1498,   ! blockidx%x threadidx%x collapsed
+   1529, Generating NVIDIA GPU code
+       1530, !$acc loop gang, vector(128) collapse(3) ! blockidx%x threadidx%x
+       1531,   ! blockidx%x threadidx%x collapsed
+       1532,   ! blockidx%x threadidx%x collapsed
+   1532, Generating implicit firstprivate(sy,sz,sx,k2t_inv,k2t)
+   1551, Generating exit data delete(nbl2inv_div_fw(:,:,:))
+allocate_advance:
+   1590, Generating enter data copyin(ux_new(:,:,:))
+   1591, Generating enter data copyin(uy_new(:,:,:))
+   1592, Generating enter data copyin(uz_new(:,:,:))
+   1593, Generating enter data copyin(bx_new(:,:,:))
+   1594, Generating enter data copyin(by_new(:,:,:))
+   1595, Generating enter data copyin(bz_new(:,:,:))
+   1596, Generating enter data copyin(w(:,:,:,:))
+   1597, Generating enter data copyin(flx(:,:,:,:))
+   1598, Generating enter data copyin(w_r(:,:,:,:))
+   1599, Generating enter data copyin(flx_r(:,:,:,:))
+   1600, Generating enter data copyin(exp_terms(:,:,:,:))
+   1615, Generating enter data copyin(ux_tmp(:,:,:))
+   1616, Generating enter data copyin(uy_tmp(:,:,:))
+   1617, Generating enter data copyin(uz_tmp(:,:,:))
+   1618, Generating enter data copyin(bx_tmp(:,:,:))
+   1619, Generating enter data copyin(by_tmp(:,:,:))
+   1620, Generating enter data copyin(bz_tmp(:,:,:))
+   1621, Generating enter data copyin(exp_terms0(:,:,:,:))
+deallocate_advance:
+   1644, Generating exit data delete(ux_new(:,:,:))
+   1645, Generating exit data delete(uy_new(:,:,:))
+   1646, Generating exit data delete(uz_new(:,:,:))
+   1647, Generating exit data delete(bx_new(:,:,:))
+   1648, Generating exit data delete(by_new(:,:,:))
+   1649, Generating exit data delete(bz_new(:,:,:))
+   1650, Generating exit data delete(w(:,:,:,:))
+   1651, Generating exit data delete(flx(:,:,:,:))
+   1652, Generating exit data delete(w_r(:,:,:,:))
+   1653, Generating exit data delete(flx_r(:,:,:,:))
+   1654, Generating exit data delete(exp_terms(:,:,:,:))
+   1674, Generating exit data delete(ux_tmp(:,:,:))
+   1675, Generating exit data delete(uy_tmp(:,:,:))
+   1676, Generating exit data delete(uz_tmp(:,:,:))
+   1677, Generating exit data delete(bx_tmp(:,:,:))
+   1678, Generating exit data delete(by_tmp(:,:,:))
+   1679, Generating exit data delete(bz_tmp(:,:,:))
+   1680, Generating exit data delete(exp_terms0(:,:,:,:))
+mpif90 -c gallope.F90 -o gallope.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -DMHD_INCOMP -D_MODEL_=\"MHD_INCOMP\" -acc 
+mpif90 -o ../gallope time_stamp.o file.o model/MHD_INCOMP/params.o mp.o mpiio.o terminate.o grid.o cuFFTmp.o time.o utils.o dealias.o shearing_box.o model/MHD_INCOMP/fields.o model/MHD_INCOMP/force.o model/MHD_INCOMP/MHD_INCOMP_specific.o model/MHD_INCOMP/io.o model/MHD_INCOMP/diagnostics.o model/MHD_INCOMP/advance.o gallope.o -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel -cuda -cudalib=cufftmp -gpu=mem:unified -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/include -I/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/include -Minfo=accel -cuda -cudalib=cufftmp  -L/work/opt/local/aarch64/cores/nvidia/25.9/Linux_aarch64/25.9/compilers/lib -lnvhpcwrapcufft -L/work/opt/local/aarch64/cores/nvidia/25.9/Linux_aarch64/25.9/math_libs/lib64/ -lcufftMp -lmpi -L/work/opt/local/aarch64/apps/nvidia/25.9/netcdf/4.9.2/lib -L/work/opt/local/aarch64/apps/nvidia/25.9/netcdf-fortran/4.6.1/lib -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -lz -acc 
+make[1]: Leaving directory '/work/gr96/o07001/gallope_performance/src'

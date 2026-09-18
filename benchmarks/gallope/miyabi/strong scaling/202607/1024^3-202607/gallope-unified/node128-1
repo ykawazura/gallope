@@ -1,0 +1,58 @@
+ 
+  -------------------------------------------------------------------- 
+ |                                                                    |
+ |     Gallope started!                                               |
+ |                                     executed on 2026- 7-25  5:22   |
+  -------------------------------------------------------------------- 
+ 
+ ==========================================
+ MPI processes:    128
+ Nodes:            128
+ GPUs per node:      1
+ ==========================================
+ This run will be terminated when the wall time exceeds  4.50 hours.
+ This run will be terminated when a file named {terminate} is created in the root directory.
+ 
+  nlx  =   1024,    nly  =   1024,    nlz  =   1024
+ 
+Solving MHD_INCOMP
+ Random initialization
+<|k. u|>/(<|k|><| u|>) =  2.092E-22
+<|k. b|>/(<|k|><| b|>) =  5.544E-22
+shear is on; tremap = 1.333
+ Reading force_parameters failed
+----------------------------------------------------------------------------
+kx0*vA_x/Omega =  0.00,  ky0*vA_y/Omega =  0.00,  kz0*vA_z/Omega =  0.50
+  (vA is computed by the initial mean magnetic fields.)
+ Lx/lmd_MRI =  4.00,   Ly/lmd_MRI =  8.00,   Lz/lmd_MRI =  2.00
+  (lmd_MRI = 2pi*vA_z/Omega.)
+----------------------------------------------------------------------------
+Initialization done
+Starting the main loop...
+Finished the main loop :)
+
+ Initialization                 0.099 min    22.9 %
+ Advance steps                  0.333 min    77.1 %
+    nonlinear terms             0.296 min    68.4 %  (88.8% in Advance steps)
+    FFT                         0.280 min    64.8 %  (84.1% in Advance steps)
+    FFT pre post-processing     0.012 min     2.7 %  ( 3.5% in Advance steps)
+    force                       0.000 m  0.0 %  ( 0.0% in Advance steps)
+ Diagnostics                    0.000 min     0.0 %
+    SF2                         0.000 min     0.0 %
+    kpar                        0.000 min     0.0 %
+    shell-to-shell transfer     0.000 min     0.0 %
+ IO                             0.000 min     0.0 %
+    2D                          0.000 min     0.0 %
+    3D                          0.000 min     0.0 %
+ Save restart                   0.000 min     0.0 %
+
+ Finish                         0.000 min     0.0 %
+
+ total from timer is:       0.432 min
+ (init + adv + diag + io + restart + finish:100.0 %)
+
+ # of steps advanced          100
+            Final dt      1.000E-03
+                                
+ ---  Program completed! ^_^ ---
+                                

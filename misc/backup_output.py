@@ -63,6 +63,20 @@ if MODEL == 'RRMHD' or MODEL == 'HRMHD' or MODEL == 'WILL' or MODEL == 'HIGH_BET
   dirnames =  ['out2d', 'out3d', 'restart']
 
 
+if MODEL == 'KRMHD':
+  # Same output set as the RMHD family, plus rms.dat. Note the KRMHD job
+  # scripts redirect stdout to 'out.std' (not 'gallope.out.std'), and KRMHD
+  # writes none of the MHD_INCOMP SF2/kpar/nltrans/modes files.
+  filenames = [
+                'out.std',
+                'gallope.in',
+                'cfl.dat',
+                'rms.dat',
+                'gallope.out.nc',
+              ]
+  dirnames =  ['out2d', 'out3d', 'restart']
+
+
 
 if restart_num != 'all':
   #==============================

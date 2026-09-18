@@ -1,0 +1,25 @@
+ cuFFTMp pencil test, random input
+ nx =  1024, ny =  1024, nz =  1024, nproc =    256, ndevices =     1, nrepeat =    10
+ ==========================================
+ Total MPI processes:    256
+ Unique nodes:           256
+ GPUs per node:            1
+ Total GPUs used:        256
+ nranks1d:                16
+ ==========================================
+ local_rshape_in  :         1026           64           64
+ local_cshape_out :          513           64           64
+ Iteration =             1 , time =    1.3229160999999996E-002
+ Iteration =             2 , time =    1.3244232999999998E-002
+ Iteration =             3 , time =    1.3267401000000002E-002
+ Iteration =             4 , time =    1.3243977999999997E-002
+ Iteration =             5 , time =    1.3368233000000000E-002
+ Iteration =             6 , time =    1.3244136000000004E-002
+ Iteration =             7 , time =    1.3256361000000008E-002
+ Iteration =             8 , time =    1.3252264999999999E-002
+ Iteration =             9 , time =    1.3265960999999979E-002
+ Iteration =            10 , time =    1.3261256999999999E-002
+ Results are correct
+ max diff =   8.5487172896137054E-015
+ Relative Linf =    8.5487178313953571E-015
+ proc_id =             0 , cpu time per loop =    1.3359726800000003E-002

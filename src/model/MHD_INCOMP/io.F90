@@ -1018,7 +1018,7 @@ contains
   subroutine save_restart
     use fields, only: ux, uy, uz
     use fields, only: bx, by, bz
-    use mp, only: proc0, proc_id
+    use mp, only: proc0, proc_id, comm_fft
     use grid, only: nkx, nky, nky_local, nkz
     use time, only: tt, dt
     use params, only: restart_dir
@@ -1044,12 +1044,12 @@ contains
 
     !$acc update host(ux, uy, uz, bx, by, bz)
 
-    call mpiio_write_one(ux, sizes, subsizes, starts, trim(restart_dir)//'ux.dat')
-    call mpiio_write_one(uy, sizes, subsizes, starts, trim(restart_dir)//'uy.dat')
-    call mpiio_write_one(uz, sizes, subsizes, starts, trim(restart_dir)//'uz.dat')
-    call mpiio_write_one(bx, sizes, subsizes, starts, trim(restart_dir)//'bx.dat')
-    call mpiio_write_one(by, sizes, subsizes, starts, trim(restart_dir)//'by.dat')
-    call mpiio_write_one(bz, sizes, subsizes, starts, trim(restart_dir)//'bz.dat')
+    call mpiio_write_one(ux, sizes, subsizes, starts, trim(restart_dir)//'ux.dat', comm_fft)
+    call mpiio_write_one(uy, sizes, subsizes, starts, trim(restart_dir)//'uy.dat', comm_fft)
+    call mpiio_write_one(uz, sizes, subsizes, starts, trim(restart_dir)//'uz.dat', comm_fft)
+    call mpiio_write_one(bx, sizes, subsizes, starts, trim(restart_dir)//'bx.dat', comm_fft)
+    call mpiio_write_one(by, sizes, subsizes, starts, trim(restart_dir)//'by.dat', comm_fft)
+    call mpiio_write_one(bz, sizes, subsizes, starts, trim(restart_dir)//'bz.dat', comm_fft)
 
     if(proc0) then
       call open_output_file (time_unit, trim(restart_dir)//'time.dat')

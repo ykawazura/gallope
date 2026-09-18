@@ -1,7 +1,8 @@
 program gallope
-  use mp, only: init_mp, finish_mp, proc0
+  use mp, only: init_mp, init_comm_layout, finish_mp, proc0
   use cufftmp, only: init_cuda, init_cuFFTmp, finish_cuFFTmp
   use params, only: init_params
+  use params, only: P_m, P_s
   use terminate, only: init_terminate, monitor_terminate, check_terminate, terminated
   use grid, only: init_grid, finish_grid
   use time, only: init_time, tt, nstep, dt
@@ -18,7 +19,7 @@ program gallope
                         timer_total, timer_init, timer_finish, &
                         timer_diagnostics_total, timer_diagnostics_SF2, timer_diagnostics_kpar, timer_diagnostics_nltrans, &
                         timer_io_total, timer_io_2D, timer_io_3D, timer_save_restart, &
-                        timer_advance, timer_nonlinear_terms, & 
+                        timer_advance, timer_nonlinear_terms, timer_nonlinear_terms_g, &
                         timer_fft, timer_fft_prepost, timer_force
   use model_specific, only :init_model_specific
   use io, only: loop_io_3D, save_restart
@@ -29,6 +30,9 @@ program gallope
 
   call init_params
   call init_mp
+  ! build the [P_fft, P_m, P_s] process grid before any grid/FFT sizing.
+  ! P_m=P_s=1 (default) makes comm_fft a full-size copy of MPI_COMM_WORLD.
+  call init_comm_layout(P_m, P_s)
   call banner
   call init_cuda
   call init_terminate
@@ -125,6 +129,7 @@ program gallope
     print '(/,'' Initialization'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
           &'' Advance steps'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',/, &
           &''    nonlinear terms'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',''  ('',f4.1,''% in Advance steps)'',/, &
+          &''    nonlinear terms (g)'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',''  ('',f4.1,''% in Advance steps)'',/, &
           &''    FFT'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',''  ('',f4.1,''% in Advance steps)'',/, &
           &''    FFT pre post-processing'',T29,0pf9.3,'' min'',T45,2pf5.1,'' %'',''  ('',f4.1,''% in Advance steps)'',/, &
           &''    force'',T29,0pf9.3,'' min'',T40,2pf5.1,'' %'',''  ('',f4.1,''% in Advance steps)'',/, &
@@ -142,6 +147,7 @@ program gallope
           timer_init(1)/60.,timer_init(1)/timer_total(1), &
           timer_advance(1)/60.,timer_advance(1)/timer_total(1), &
             timer_nonlinear_terms(1)/60.,timer_nonlinear_terms(1)/timer_total(1),timer_nonlinear_terms(1)/timer_advance(1), &
+            timer_nonlinear_terms_g(1)/60.,timer_nonlinear_terms_g(1)/timer_total(1),timer_nonlinear_terms_g(1)/timer_advance(1), &
             timer_fft(1)/60.,timer_fft(1)/timer_total(1),timer_fft(1)/timer_advance(1), &
             timer_fft_prepost(1)/60.,timer_fft_prepost(1)/timer_total(1),timer_fft_prepost(1)/timer_advance(1), &
             timer_force(1)/60.,timer_force(1)/timer_total(1),timer_force(1)/timer_advance(1), &

@@ -15,8 +15,17 @@ module force_common
   integer :: nk_stir
   logical :: elsasser, fix_power
   real(8) :: ene_inj, xhl_inj, res_inj
+  !> Compressive free-energy injection rate for the KRMHD g_{m=1} forcing
+  !> (see KRMHD/force.F90::normalize_force_g). Default 0 => no g forcing, so
+  !> RMHD/MHD_INCOMP that never read it are unaffected.
+  real(8) :: ene_inj_g
   real(8) :: kmin(3), kmax(3)
   integer :: nfields
+  !> Base seed for the stochastic forcing RNG. stir_seed < 0 (default) draws a
+  !> wall-clock seed => nondeterministic run-to-run. stir_seed >= 0 gives a
+  !> fixed, reproducible forcing realization (bitwise regression; later, the
+  !> P_m-redundant solves that must agree bitwise across comm_m).
+  integer :: stir_seed
   character(len=100), allocatable :: field_names(:)
   real   (8), allocatable :: amplitudes(:)
   complex(8), allocatable :: frequencies(:)
@@ -34,8 +43,8 @@ module force_common
 
   integer :: force_unit
 
-  !$acc declare create(ene_inj, xhl_inj, res_inj)
-  !$acc declare create(ky_stir, kx_stir, kz_stir, a_force, b_force, ene_inj, xhl_inj, res_inj)
+  !$acc declare create(ene_inj, xhl_inj, res_inj, ene_inj_g)
+  !$acc declare create(ky_stir, kx_stir, kz_stir, a_force, b_force, ene_inj, xhl_inj, res_inj, ene_inj_g)
 contains
 
 
@@ -76,7 +85,7 @@ contains
     character(len=100), intent(in) :: filename
     integer  :: ierr
 
-    namelist /force/ driven, elsasser, fix_power, ene_inj, xhl_inj, res_inj, kmin, kmax, nfields
+    namelist /force/ driven, elsasser, fix_power, ene_inj, xhl_inj, res_inj, ene_inj_g, kmin, kmax, nfields, stir_seed
     namelist /forced_fields/ field_names, amplitudes, frequencies
 
     !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
@@ -89,9 +98,11 @@ contains
     ene_inj = 0.d0
     xhl_inj = 0.d0
     res_inj = 0.d0
+    ene_inj_g = 0.d0
     kmin = (/0.d0, 0.d0, 0.d0/)
     kmax = (/0.d0, 0.d0, 0.d0/)
     nfields = 0
+    stir_seed = -1   ! < 0 => wall-clock (random) seed, preserving prior behavior
     !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^!
 
     call get_unused_unit (unit)
@@ -100,7 +111,7 @@ contains
     read(unit,nml=force,iostat=ierr)
         if (ierr/=0) write(*,*) "Reading force_parameters failed"
     close(unit)
-    !$acc update device(ene_inj, xhl_inj, res_inj)
+    !$acc update device(ene_inj, xhl_inj, res_inj, ene_inj_g)
 
     allocate(field_names(nfields))
     allocate(amplitudes (nfields))
@@ -173,7 +184,17 @@ contains
       end do
     end do
 
-    if(proc0) call init_ranf(.true.,init_seed)
+    ! Seed the stochastic forcing. Default (stir_seed < 0) draws a wall-clock
+    ! seed => nondeterministic between runs; stir_seed >= 0 gives a fixed,
+    ! reproducible forcing realization. proc0 builds the seed and broadcasts it
+    ! so every rank shares the same forcing sequence.
+    if(proc0) then
+      if (stir_seed < 0) then
+        call init_ranf(.true., init_seed)
+      else
+        call seed_from_int(stir_seed, init_seed)
+      endif
+    endif
     call broadcast (init_seed)
     call init_ranf(.false.,init_seed)
 
@@ -416,6 +437,24 @@ contains
     endif
 
   end subroutine init_ranf
+
+  subroutine seed_from_int(base, seed_out)
+    !  Fill the RNG seed vector deterministically from an integer base,
+    !  reusing the lcg mixer of the randomize path in init_ranf. Independent of
+    !  the wall clock, so the forcing realization is bitwise-reproducible.
+    implicit none
+    integer, intent(in) :: base
+    integer, intent(inout), dimension(:) :: seed_out
+    integer :: i, n
+    integer (kind=kind_id) :: t
+
+    call random_seed(size=n)
+    t = int(base, kind_id) + 1_kind_id   ! +1 avoids the t==0 degenerate branch in lcg
+    do i = 1, n
+      seed_out(i) = lcg(t)
+    end do
+
+  end subroutine seed_from_int
 
   ! This simple PRNG might not be good enough for real work, but is
   ! sufficient for seeding a better PRNG.
