@@ -1,0 +1,37 @@
+#=======================================================================
+# Flow2.0 / 不老・弐 (Nagoya Univ.) Type II -- NVIDIA Grace x2 (aarch64)
+# + B200 x4 per node, NVIDIA HPC SDK 26.5 (CUDA 13.2) + HPC-X.
+#
+#   module load nvhpc/26.5 nv-hpcx hdf5 netcdf netcdf-fortran
+#
+# BUILD ON A TYPE II NODE.  The login nodes (flow2-login*, flow2-ai) are
+# x86_64 and carry only the x86_64 module tree, so nvfortran for aarch64
+# exists only inside a Type II job.  t2-dev (one MIG slice, 4 cores) is
+# enough -- the build takes about 20 s there -- and usually starts within
+# minutes, while t2-share can queue for days:
+#
+#   cd /data/n108368/gallope_dev
+#   qsub -q t2-dev -l select=1:ngpus=1 -l walltime=00:30:00 -j oe \
+#        -N make_gallope <<'EOF'
+#   #!/bin/bash -l
+#   module load nvhpc/26.5 nv-hpcx hdf5 netcdf netcdf-fortran
+#   cd ${PBS_O_WORKDIR}
+#   make
+#   EOF
+#
+# Everything comes from the modules, as in arch/miyabi.in: mpif90 is
+# HPC-X's, NETCDF_DIR / NETCDF_FORTRAN_DIR are set by the netcdf and
+# netcdf-fortran modules (separate prefixes here), and NVHPC_ROOT, which
+# src/Makefile's LINKER expands, is set by the nvhpc module.
+#
+# LINKER is intentionally not set: src/Makefile overrides it with ':='.
+#=======================================================================
+F90 = mpif90
+
+NETCDF_INC = -I$(NETCDF_DIR)/include -I$(NETCDF_FORTRAN_DIR)/include
+NETCDF_LIB = -L$(NETCDF_DIR)/lib -L$(NETCDF_FORTRAN_DIR)/lib -lnetcdff -lnetcdf
+
+# -gpu=cc100 : B200 (Blackwell) only, avoids generating code for every arch
+FLAGS  = -O3 -Mfree -fast -Mextend -Mpreprocess -Minform=warn -Minfo=accel \
+         -cuda -cudalib=cufftmp -gpu=cc100
+#FLAGS += -gpu=mem:unified

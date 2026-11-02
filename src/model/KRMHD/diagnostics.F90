@@ -87,7 +87,7 @@ contains
 
     if (proc0) call put_time_stamp(timer_diagnostics_total)
 
-    allocate(src(nkz, nky_local, nkx), source=(0.d0, 0.d0))
+    allocate(src(nkz, nky_local, nkx), source=0.d0)
     allocate(upe2        , source=src)
     allocate(bpe2        , source=src)
     allocate(upe2old     , source=src)

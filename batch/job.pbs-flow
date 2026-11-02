@@ -1,0 +1,39 @@
+#!/bin/bash -l
+#=======================================================================
+# Flow2.0 / 不老・弐 Type II (PBS Professional) -- B200 x4 per node.
+# Build with arch/flow.in (on a Type II node; see the header there).
+#
+#   qsub batch/job.pbs-flow                        # reads gallope.in
+#   qsub -v RUNNAME=myrun batch/job.pbs-flow       # reads myrun.in
+#   qsub -q t2-debug batch/job.pbs-flow            # 1 node, <= 1 h
+#
+# One rank per GPU: mpiprocs=4 per node, and select=<nodes> on
+# t2-small/t2-middle for more nodes.  MPI_PROC and MPI_PROC_PER_NODE are
+# set by the nv-hpcx module from mpiprocs x nodes.
+#
+# The ranks go through batch/gpu-bind-tsubame.sh, which pins the OpenACC
+# device from the intra-node rank before the process starts; that is
+# needed on any node with several GPUs, not only on TSUBAME.
+#
+# UCX_RNDV_THRESH=64k makes UCX send device buffers across nodes by
+# rendezvous (zero-copy RDMA).  With 4 ranks per node it otherwise sends
+# anything over 8 KB as "multi-frag eager" through host memory: one 135 MB
+# KRMHD moment plane (256^3) took ~43 ms instead of 2.74 ms, and KRMHD at
+# 256^3, nm=128 on 2 nodes ran 0.499 s/step instead of 0.214 (P_fft=1).
+# Traffic inside a node (cuda_ipc, NVSHMEM) is the same either way.
+#=======================================================================
+#PBS -q t2-single
+#PBS -l select=1:mpiprocs=4:ompthreads=12
+#PBS -l walltime=00:10:00
+#PBS -j oe
+
+module load nvhpc/26.5 nv-hpcx hdf5 netcdf netcdf-fortran
+
+cd ${PBS_O_WORKDIR}
+
+RUNNAME=${RUNNAME:-gallope}
+
+mpirun -n ${MPI_PROC} --map-by ppr:${MPI_PROC_PER_NODE}:node \
+    -x UCX_RNDV_THRESH=64k \
+    ./batch/gpu-bind-tsubame.sh \
+    ./gallope ${RUNNAME} > ${RUNNAME}.out.std 2>&1
