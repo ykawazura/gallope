@@ -44,6 +44,7 @@ Set `MODEL` in `Makefile.in`:
 | `MHD_INCOMP`   | Incompressible MHD |
 | `RMHD`         | Reduced MHD        |
 | `KRMHD`        | Kinetic reduced MHD (RMHD + passive Hermite moments `g_m`) |
+| `HRMHD`        | Hall reduced MHD (kinetic/inertial Alfvén waves; `phi`, `psi`, `upa`, `bpa`) |
 
 
 ---
@@ -71,7 +72,7 @@ Set the target environment (`arch`) and the physics model (`MODEL`).
 
 ```make
 arch = miyabi           # Loads configuration from arch/miyabi.in
-MODEL = MHD_INCOMP      # Options: MHD_INCOMP, RMHD, KRMHD
+MODEL = MHD_INCOMP      # Options: MHD_INCOMP, RMHD, KRMHD, HRMHD
 ````
 
 ### 2. Configure `arch/<arch>.in`
