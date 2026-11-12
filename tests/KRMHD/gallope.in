@@ -1,0 +1,123 @@
+!--------------------------------------------------------------------!
+!  MID-RESOLUTION KRMHD run (64^2 x 32, nm=32, np=4) -- ZERO IC.       !
+!                                                                     !
+!  Balanced-forcing control run. Same physics/grid as the mu=1e3      !
+!  run (midres_gpb.in), but init_type='zero': ALL fields (phi, psi,   !
+!  omg, g) start at EXACTLY zero and the driven forcing builds the    !
+!  state from scratch.                                                !
+!                                                                     !
+!  Purpose: with xhl_inj=0 the fix_power forcing injects EQUAL power  !
+!  into Z+ and Z- each step (zero NET cross-helicity injection). From !
+!  a zero start the state is BUILT by this balanced forcing, so the   !
+!  normalized cross helicity sigma_c=(E_Z+ - E_Z-)/(E_Z+ + E_Z-)      !
+!  stays ~0 -- in contrast to the random IC (seed 7), which inherited !
+!  a strong sigma_c~-0.97 that froze in (cross helicity is a rugged   !
+!  ideal RMHD invariant, changed only by injection=0 + weak dissip).  !
+!                                                                     !
+!  fix_power on the first step: with zero fields the field-force      !
+!  projection is 0, so the >1e-6 guard (force.F90) skips normaliza-   !
+!  tion for step 1 only (raw O(dt) random kick); from step 2 on the   !
+!  fields exceed 1e-6 and balanced normalization takes over. The      !
+!  O(dt) step-1 kick is negligible vs the forcing-built state.        !
+!                                                                     !
+!  np=4 => [P_fft=4, P_m=1, P_s=1]: cuFFTMp splits the FFT across the  !
+!  4 GPUs, each rank owns all m. P_fft=4 | nly=64; P_m=1 | nm=32.      !
+!  debug-g queue (4 nodes, <=30 min); run self-checkpoints at         !
+!  max_wall_time=0.45h.                                                !
+!--------------------------------------------------------------------!
+&parallelization
+  P_m = 1
+  P_s = 1
+/
+
+&box_parameters
+  lx = 1.0
+  ly = 1.0
+  lz = 1.0
+  nlx = 64
+  nly = 64
+  nlz = 32
+  nm  = 32
+/
+
+&time_parameters
+  dt    = 5.0d-3
+  nstep = 20000
+  cfl   = 0.5d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+&operation_parameters
+  nonlinear          = T
+  write_hermite_flux = F
+/
+
+&physical_parameters
+  ! Alfvenic (phi,psi) hyper-dissipation (RMHD-inherited); scaled up
+  ! from lowres to keep the Alfven bath bounded on the finer grid.
+  nupe_x      = 8.0d+3
+  nupe_x_exp  = 4
+  etape_x     = 8.0d+3
+  etape_x_exp = 4
+  nupe_z      = 6.0d+1
+  nupe_z_exp  = 4
+  etape_z     = 6.0d+1
+  etape_z_exp = 4
+
+  ! Kinetic (g) closure: perp k^4 hyperviscosity + Hermite m^6 hypercollision.
+  ! These ARE the D_g sink checked by the balance, so both are nonzero.
+  ! v_th is derived (= sqrt(beta_i) = 1 here).
+  mu_hyper_perp = 1.0d+3
+  nexp_perp     = 2
+  nu_hyper_m    = 3.0d0
+  nexp_m        = 6
+  beta_i        = 1.d0
+  tau           = 1.d0
+  Zcharge       = 1.d0
+  alpha_root    = 1
+/
+
+&initial_condition
+  init_type = 'zero'   ! all fields start at exactly zero; forcing builds the state
+  init_seed = 7        ! unused for zero IC (kept for reproducibility of stir)
+/
+
+&force
+  driven    = T
+  elsasser  = .true.
+  fix_power = .true.
+  ene_inj   = 1.0d0
+  xhl_inj   = 0.0d0
+  ene_inj_g = 1.0d0
+  kmin = 0.d0  0.d0  1.d0
+  kmax = 1.0d0  1.0d0  2.d0
+  nfields = 3
+  stir_seed = 7
+/
+&forced_fields
+  field_names = 'zppe'      , 'zmpe'      , 'g1'
+  amplitudes  =  1.0        ,  1.0        ,  1.0
+  frequencies = (0.9, -0.6) , (0.9, -0.6) , (0.9, -0.6)
+/
+
+&terminate
+  max_wall_time   = 0.45
+  terminate_file_name = 'terminate'
+/
+
+&diagnostics_parameters
+  write_intvl         = 0.1d0
+  write_intvl_2D      = 2.0d0   ! EM field real-space cross-sections for plot_fields
+  write_intvl_3D      = 0.0d0
+  SF2_nsample = 100000
+/
+
+&restart_parameters
+  save_restart_intvl = 5.0d0
+  restart_dir = './restart/'
+/

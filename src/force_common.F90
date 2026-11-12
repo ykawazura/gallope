@@ -75,9 +75,8 @@ contains
     use params, only: pi
     use mp, only: proc0
     use mp, only: broadcast
-    use grid, only: kx, ky, kz
-    use grid, only: ikx, iky, ikz
-    use grid, only: nkx, nky_local, nkz
+    use grid, only: nkx, nky, nkz
+    use grid, only: ikx, iky_global, ikz
     use file, only: get_unused_unit, get_indexed_namelist_unit, open_output_file
     implicit none
     integer :: i, j, k, count, ifield, unit, in_file
@@ -130,17 +129,15 @@ contains
     call broadcast(amplitudes)
     call broadcast(frequencies)
 
+    ! The list of forced modes is built from the global wavenumbers, so every
+    ! rank holds the same list and draws the same random numbers. On the kz = 0
+    ! plane, only half of the modes are listed; get_force sets the other half
+    ! by the reality condition.
     count = 0
     do i =1, nkx
-      do j = 1, nky_local
+      do j = 1, nky
         do k = 1, nkz
-          if(       kx(i)**2 >= kmin(1)**2 .and. kx(i)**2 <= kmax(1)**2 &
-              .and. ky(j)**2 >= kmin(2)**2 .and. ky(j)**2 <= kmax(2)**2 &
-              .and. kz(k)**2 >= kmin(3)**2 .and. kz(k)**2 <= kmax(3)**2 &
-              .and. kz(k) > 0.d0 & ! For some reason, forcing kz = 0 makes the energy accumulate at this mode
-            ) then
-            count = count + 1
-          endif
+          if(is_stirred(i, j, k)) count = count + 1
         end do
       end do
     end do
@@ -160,16 +157,12 @@ contains
     do ifield = 1, nfields
       count = 1
       do i =1, nkx
-        do j = 1, nky_local
+        do j = 1, nky
           do k = 1, nkz
-            if(     kx(i)**2 >= kmin(1)**2 .and. kx(i)**2 <= kmax(1)**2 &
-              .and. ky(j)**2 >= kmin(2)**2 .and. ky(j)**2 <= kmax(2)**2 &
-              .and. kz(k)**2 >= kmin(3)**2 .and. kz(k)**2 <= kmax(3)**2 &
-              .and. kz(k) > 0.d0 & ! For some reason, forcing kz = 0 makes the energy accumulate at this mode
-              ) then
+            if(is_stirred(i, j, k)) then
 
               kx_stir    (ifield, count) = ikx(i)
-              ky_stir    (ifield, count) = iky(j)
+              ky_stir    (ifield, count) = iky_global(j)
               kz_stir    (ifield, count) = ikz(k)
               f_name     (ifield, count) = field_names(ifield)
               f_amplitude(ifield, count) = amplitudes (ifield)
@@ -196,7 +189,9 @@ contains
       endif
     endif
     call broadcast (init_seed)
-    call init_ranf(.false.,init_seed)
+    fin_seed = init_seed
+
+    if(proc0) print '("  forcing: nk_stir = ", i0, " modes per field, stir_seed = ", i0)', nk_stir, stir_seed
 
     ! if(proc0) then
     !   call open_output_file (force_unit, 'force.dat')
@@ -229,9 +224,13 @@ contains
 
     if (proc0) call put_time_stamp(timer_force)
 
+    ! Continue the forcing's own random sequence, so that other calls of
+    ! random_seed/random_number (e.g., random initial conditions) do not alter it
+    call random_seed(put=fin_seed)
+
     do istir = 1, nk_stir
       do ifield = 1, nfields
-        w_stir(ifield, istir) = lz/(2.d0*pi)*abs(kz_stir(ifield, istir))*f_frequency(ifield, istir)
+        w_stir(ifield, istir) = 2.d0*pi/lz*abs(kz_stir(ifield, istir))*f_frequency(ifield, istir)
         
         sigma = sqrt(12.d0*abs(aimag(w_stir(ifield, istir)))/dt)*f_amplitude(ifield, istir)
         fa = cmplx(ranf() - 0.5d0, ranf() - 0.5d0) * sigma
@@ -239,10 +238,10 @@ contains
 
         a_force(ifield, istir) = a_force(ifield, istir)*exp(-zi*w_stir(ifield, istir)*dt) + fa*dt
         b_force(ifield, istir) = 0.d0
-
-        call get_rnd_seed(fin_seed)
       end do
     end do
+
+    call get_rnd_seed(fin_seed)
 
     ! if(proc0) then
     !   write (unit=force_unit, fmt="(100es30.21)", advance='no') tt + dt
@@ -270,13 +269,14 @@ contains
 !!          inputfile
 !-----------------------------------------------!
   subroutine get_force (name, u)
-    use grid, only: nkx, nky, nky_local, nkz
-    use mp, only: proc0
+    use grid, only: nkx, nky, nky_local
+    use mp, only: proc0, iproc_fft
     use time_stamp, only: put_time_stamp, timer_force
     implicit none
     character(*) :: name
     complex(8), dimension (:,:,:), intent(inout) :: u
-    integer :: i, j, k, ifield, istir
+    integer :: i, j, k, ifield, istir, j_off
+    complex(8) :: f
 
     if (proc0) call put_time_stamp(timer_force)
 
@@ -287,27 +287,23 @@ contains
 
     if (ifield == 0) return
     
-    !$acc parallel loop present(u, ky_stir, kx_stir, kz_stir, a_force, b_force)
+    ! u holds the ky slab j_off + 1 : j_off + nky_local of the global grid
+    j_off = nky_local*iproc_fft
+
+    !$acc parallel loop present(u, ky_stir, kx_stir, kz_stir, a_force, b_force) private(i, j, k, f)
     do istir = 1, nk_stir
+      f = (a_force(ifield, istir) + b_force(ifield, istir))/sqrt(2.d0)
+
+      i = modulo(kx_stir(ifield, istir), nkx) + 1
+      j = modulo(ky_stir(ifield, istir), nky) + 1 - j_off
       k = kz_stir(ifield, istir) + 1
+      if(j >= 1 .and. j <= nky_local) u(k, j, i) = f
 
-      if(kx_stir(ifield, istir) >= 0) then
-        i = kx_stir(ifield, istir) + 1
-      else
-        i = nkx + kx_stir(ifield, istir) + 1
-      endif
-
-      if(ky_stir(ifield, istir) >= 0) then
-        j = ky_stir(ifield, istir) + 1
-      else
-        j = nky + ky_stir(ifield, istir) + 1
-      endif
-
-      if(      (i >= 1 .and. i <= nkx) &
-         .and. (j >= 1 .and. j <= nky_local) &
-         .and. (k >= 1 .and. k <= nkz) ) then
-
-         u(k, j, i) = (a_force(ifield, istir) + b_force(ifield, istir))/sqrt(2.d0)
+      ! reality condition on the kz = 0 plane: f(-k) = conjg(f(k))
+      if(k == 1) then
+        i = modulo(-kx_stir(ifield, istir), nkx) + 1
+        j = modulo(-ky_stir(ifield, istir), nky) + 1 - j_off
+        if(j >= 1 .and. j <= nky_local) u(k, j, i) = conjg(f)
       endif
     end do
     !$acc end parallel loop
@@ -346,42 +342,68 @@ contains
 !!          unforced one )
 !-----------------------------------------------!
   subroutine zeroing_at_forcing_wavenumber (u)
-    use grid, only: nkx, nky_local, nkz
-    use mp, only: proc0
+    use grid, only: nkx, nky, nky_local
+    use mp, only: proc0, iproc_fft
     use time_stamp, only: put_time_stamp, timer_force
     implicit none
-    integer :: i, j, k, ifield, istir
+    integer :: i, j, k, ifield, istir, j_off
     complex(8), dimension (:,:,:), intent(inout) :: u
 
     if (proc0) call put_time_stamp(timer_force)
 
+    j_off = nky_local*iproc_fft
+
     do ifield = 1, nfields
       do istir = 1, nk_stir
-        j = ky_stir(ifield, istir) + 1
+        i = modulo(kx_stir(ifield, istir), nkx) + 1
+        j = modulo(ky_stir(ifield, istir), nky) + 1 - j_off
+        k = kz_stir(ifield, istir) + 1
+        if(j >= 1 .and. j <= nky_local) u(k, j, i) = 0.d0
 
-        if(kx_stir(ifield, istir) >= 0) then
-          i = kx_stir(ifield, istir) + 1
-        else
-          i = nkx + kx_stir(ifield, istir) + 1
-        endif
-
-        if(kz_stir(ifield, istir) >= 0) then
-          k = kz_stir(ifield, istir) + 1
-        else
-          k = nkz + kz_stir(ifield, istir) + 1
-        endif
-
-        if(     (i >= 1 .and. i <= nkx) &
-          .and. (j >= 1 .and. j <= nky_local) &
-          .and. (k >= 1 .and. k <= nkz) ) then
-
-          u(k, j, i) = 0.d0
+        if(k == 1) then
+          i = modulo(-kx_stir(ifield, istir), nkx) + 1
+          j = modulo(-ky_stir(ifield, istir), nky) + 1 - j_off
+          if(j >= 1 .and. j <= nky_local) u(k, j, i) = 0.d0
         endif
       end do
     enddo
 
     if (proc0) call put_time_stamp(timer_force)
   end subroutine zeroing_at_forcing_wavenumber
+
+
+!-----------------------------------------------!
+!> @brief   Whether the mode (kx(i), ky_global(j),
+!!          kz(k)) is listed as a forced mode
+!-----------------------------------------------!
+  function is_stirred (i, j, k)
+    use grid, only: kx, ky_global, kz, ikx, iky_global, ikz
+    use grid, only: nlx, nly, nlz
+    implicit none
+    logical :: is_stirred
+    integer, intent(in) :: i, j, k
+
+    ! In the band kmin <= |k| <= kmax, without the Nyquist modes (on the kz = 0
+    ! plane, they have no distinct -k partner on the grid; they are left out on
+    ! every plane). On the kz = 0 plane, only the half
+    ! ky > 0 .or. (ky == 0 .and. kx > 0) is listed (k = 0 excluded);
+    ! get_force sets the other half.
+    is_stirred = in_band(kx(i), 1) .and. in_band(ky_global(j), 2) .and. in_band(kz(k), 3) &
+      .and. 2*abs(ikx(i)) < nlx .and. 2*abs(iky_global(j)) < nly .and. 2*ikz(k) < nlz &
+      .and. (ikz(k) > 0 .or. iky_global(j) > 0 .or. (iky_global(j) == 0 .and. ikx(i) > 0))
+
+  contains
+
+    ! kmin(d) <= |k| <= kmax(d), tolerating round-off in k
+    logical function in_band (kk, d)
+      real(8), intent(in) :: kk
+      integer, intent(in) :: d
+      real(8), parameter :: tol = 1.d-8
+
+      in_band = kk**2 >= kmin(d)**2*(1.d0 - tol) .and. kk**2 <= kmax(d)**2*(1.d0 + tol)
+    end function in_band
+
+  end function is_stirred
 
 
   !vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv!
