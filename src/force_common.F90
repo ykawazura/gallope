@@ -351,22 +351,29 @@ contains
 
     if (proc0) call put_time_stamp(timer_force)
 
+    ! u holds the ky slab j_off + 1 : j_off + nky_local of the global grid
     j_off = nky_local*iproc_fft
 
+    ! u is device-resident (as in get_force), so zero it on the device. Every
+    ! field lists the same modes, so different ifield may write the same entry;
+    ! they all write zero, so the overlap is harmless.
+    !$acc parallel loop collapse(2) present(u, kx_stir, ky_stir, kz_stir) private(i, j, k)
     do ifield = 1, nfields
       do istir = 1, nk_stir
         i = modulo(kx_stir(ifield, istir), nkx) + 1
         j = modulo(ky_stir(ifield, istir), nky) + 1 - j_off
         k = kz_stir(ifield, istir) + 1
-        if(j >= 1 .and. j <= nky_local) u(k, j, i) = 0.d0
+        if(j >= 1 .and. j <= nky_local) u(k, j, i) = (0.d0, 0.d0)
 
+        ! the -k partner on the kz = 0 plane (see get_force)
         if(k == 1) then
           i = modulo(-kx_stir(ifield, istir), nkx) + 1
           j = modulo(-ky_stir(ifield, istir), nky) + 1 - j_off
-          if(j >= 1 .and. j <= nky_local) u(k, j, i) = 0.d0
+          if(j >= 1 .and. j <= nky_local) u(k, j, i) = (0.d0, 0.d0)
         endif
       end do
     enddo
+    !$acc end parallel loop
 
     if (proc0) call put_time_stamp(timer_force)
   end subroutine zeroing_at_forcing_wavenumber
