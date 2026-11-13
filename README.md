@@ -238,7 +238,12 @@ rather than the tip of `main`: later commits will move on from the paper.
 │   ├── gallope/                # application-level scaling
 │   ├── p3dfft_vs_cufftmp/      # FFT-level scaling
 │   └── README.md
-├── tests/              # Reference runs with their recorded stdout
+├── tests/              # Validation runs: inputs, drivers and reports
+│   ├── HRMHD/                  # also RRMHD/, EMHD/: setup_runs.sh, check_runs.py, validation_tsubame.md
+│   ├── release/                # checks of a release against the previous one
+│   ├── RMHD/                   # also MHD_INCOMP(*)/, regression_check/: reference runs with their stdout
+│   ├── compare_calliope.py     # field-by-field comparison with Calliope
+│   └── run_cases-tsubame.sh    # TSUBAME4.0 job driver for the validation cases
 ├── Makefile.in         # Main build 
 └── README.md
 ```

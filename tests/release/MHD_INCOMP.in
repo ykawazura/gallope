@@ -1,0 +1,85 @@
+!--------------------------------------------------!
+!   Release check (v1.0 vs v1.1): MHD_INCOMP base  !
+!   One namelist item per line (nvfortran stops a  !
+!   group at a semicolon). Cases: setup_runs.sh.   !
+!--------------------------------------------------!
+&parallelization
+  P_m = 1
+  P_s = 1
+/
+
+&box_parameters
+  lx = 1.0
+  ly = 1.0
+  lz = 1.0
+  nlx = 64
+  nly = 64
+  nlz = 32
+/
+
+&time_parameters
+  dt    = 1.0d-3
+  nstep = 200
+  cfl   = 1.0d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+&operation_parameters
+  nonlinear = T
+/
+
+&physical_parameters
+  nu        = 0d+0
+  nu_h      = 1d+4
+  nu_h_exp  = 4
+  eta       = 0d+0
+  eta_h     = 1d+4
+  eta_h_exp = 4
+  shear  = .false.
+  q      = 0.d0
+/
+
+&initial_condition
+  init_type = 'OT3'
+/
+
+&force
+  driven = F
+  elsasser = .true.
+  fix_power = .true.
+  ene_inj = 1.0d0
+  xhl_inj = 0.5d0
+  kmin = 1.d0  1.d0  1.d0
+  kmax = 2.d0  2.d0  2.d0
+  nfields = 4
+  stir_seed = 1
+/
+&forced_fields
+  field_names = 'zpx'      , 'zpy'      , 'zmx'      , 'zmy'
+  amplitudes  =  1.0       ,  1.0       ,  1.0       ,  1.0
+  frequencies = (0.9, -0.6), (0.9, -0.6), (0.9, -0.6), (0.9, -0.6)
+/
+
+&terminate
+  max_wall_time   = 0.5
+  terminate_file_name = 'terminate'
+/
+
+&diagnostics_parameters
+  write_intvl         = 0.01d0
+  write_intvl_2D      = 0.0d0
+  write_intvl_3D      = 0.0d0
+  write_intvl_kpar    = 0.0d0
+  write_intvl_SF2     = 0.0d0
+  write_intvl_nltrans = 0.0d0
+/
+
+&restart_parameters
+  save_restart_intvl = 10.0d0
+  restart_dir = './restart/'
+/
