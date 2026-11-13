@@ -178,7 +178,7 @@ total from timer is:     270.398 min
 |---|---|
 |**`gallope.out.nc`**|netCDF file containing global diagnostics (energies) and 1D spectra.|
 |**`out2d/`**|Time evolution of 2D slices (cross-sections) of fields.|
-|**`out3d/`**|Time evolution of full 3D field data.|
+|**`out3d/`**|Fourier coefficients of the full 3D fields, written every `write_intvl_3D` (`0` = off): one record per write, a `complex(8)` array `(nlz/2+1, nly, nlx)` in Fortran order (kz fastest). The times are in `out3d/time.dat`.|
 |**`restart/`**|Snapshots generated at the end of the run (or periodically).|
 
 To restart a simulation, set `init_type = 'restart'` in your `gallope.in` file.
