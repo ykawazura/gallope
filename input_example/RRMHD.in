@@ -1,0 +1,106 @@
+!--------------------------------------------------!
+!                 INPUTS for RRMHD                 !
+!--------------------------------------------------!
+&box_parameters
+  lx = 4.0 ! to be multiplied by 2pi
+  ly = 1.0 ! to be multiplied by 2pi
+  lz = 4.0 ! to be multiplied by 2pi
+
+  nlx = 128
+  nly = 32
+  nlz = 128
+/
+
+!==============================================================================
+&time_parameters
+  dt    = 1.0d-1
+  nstep = 20000
+  cfl   = 0.8d0              ! cfl <= 0.8 keeps kz*dt below sqrt(3), the RK3 limit,
+                             ! at the dealiasing cutoff (the linear bound is dt <= cfl*dlz).
+  reset_method = 'decrement'  !'multiply'  => multiply by a factor of 0.5
+                             !'decrement' => decrement the top integer of dt
+  increase_dt = 0e+0         !When max dt computed from the cfl condition is
+                             ! larger than this value, set dt = increase_dt.
+
+                             ! When the file 'dt_adjust' including a float number is created,
+                             ! dt will be manually adjusted to that value while running.
+/
+
+!==============================================================================
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3' ! 'gear3' or 'eSSPIFRK3'
+/
+
+!==============================================================================
+&operation_parameters
+  nonlinear = T
+/
+
+!==============================================================================
+&physical_parameters
+  beta    = 1.0d0                 ! plasma beta
+  gamma   = 1.666666666666667d0   ! adiabatic index
+  q       = 1.5d0                 ! shear parameter (3/2: Keplerian)
+  kappa_b = 0.0d0                 ! background magnetic-field gradient
+  kappa_p = 0.0d0                 ! background pressure gradient
+
+  ! perp hyper dissipation ~ nu_x*(kprp^2/kprp_max^2)^exp
+  nupe_x  = 1d+3  ! for phi
+  nupe_x_exp  = 4
+  etape_x = 1d+3  ! for psi
+  etape_x_exp = 4
+  nupa_x  = 2d+3  ! for upa
+  nupa_x_exp  = 4
+  etapa_x = 2d+3  ! for bpa (the rate is divided by 1 + 2/(beta*gamma))
+  etapa_x_exp = 4
+
+  ! para hyper dissipation ~ nu_z*(kz^2/kz_max^2)^exp
+  nupe_z  = 1d+2
+  nupe_z_exp  = 4
+  etape_z = 1d+2
+  etape_z_exp = 4
+  nupa_z  = 1d+2
+  nupa_z_exp  = 4
+  etapa_z = 1d+2
+  etapa_z_exp = 4
+/
+
+!==============================================================================
+&initial_condition
+  init_type = 'random'       ! uses init_seed
+  !init_type = 'zero'
+  !init_type = 'single_mode'  ! uses mode_k[xyz], amp_{phi,psi,upa,bpa}
+  !init_type = 'OT2'
+  !init_type = 'OT3'
+  !init_type = 'restart'
+  init_seed = 1
+/
+
+!==============================================================================
+!  RRMHD has no forcing: driven = T stops the run
+&force
+  driven = F
+/
+
+!==============================================================================
+&terminate
+  max_wall_time   = 9.5             ! The simulation will be terminated when the wall
+                                    ! time exceeds this value (in the unit of hour).
+
+  terminate_file_name = 'terminate' ! The simulation will be terminated when the file
+                                    ! named this value is created in the root directory
+                                    ! in the middle of simulation.
+/
+
+!==============================================================================
+&diagnostics_parameters
+  write_intvl         = 0.1d0  ! output every this value.
+  write_intvl_2D      = 1.0d0  ! output every this value.
+  write_intvl_3D      = 10.0d0 ! output every this value.
+/
+
+!==============================================================================
+&restart_parameters
+  save_restart_intvl = 1.0d0      ! save every this value.
+  restart_dir = './restart/'
+/
