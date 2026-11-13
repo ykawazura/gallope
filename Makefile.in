@@ -3,7 +3,7 @@
 #=======================================================================
 
 # Set architecture name; 'arch/$(arch).in' will be included.
-arch = miyabi
+arch = flow
 
 # MODEL :
 # 	MHD_INCOMP     ! incompressible MHD
@@ -12,7 +12,7 @@ arch = miyabi
 # 	RRMHD          ! rotating reduced MHD
 # 	HRMHD          ! Hall reduced MHD
 # 	EMHD           ! electron MHD
-MODEL = MHD_INCOMP
+MODEL = KRMHD
 
 # debug
 DEBG = no
