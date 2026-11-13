@@ -1,0 +1,122 @@
+!--------------------------------------------------!
+!                 INPUTS for EMHD                  !
+!   (1 + de^2 k^2) db/dt = curl(u x b*) + f        !
+!                          - eta (k^2/k2_max)^eta_exp b,
+!   b* = b - de^2 lap b,  u = -curl b              !
+!   One namelist item per line (nvfortran stops    !
+!   reading a group at ';').                       !
+!--------------------------------------------------!
+&box_parameters
+  lx = 1.0 ! to be multiplied by 2pi
+  ly = 1.0 ! to be multiplied by 2pi
+  lz = 1.0 ! to be multiplied by 2pi
+
+  nlx = 128
+  nly = 128
+  nlz = 128
+/
+
+!==============================================================================
+&time_parameters
+  dt    = 1.0d-3
+  nstep = 200000
+  cfl   = 0.8d0              ! dt_cfl = cfl/max(|u_x|/dlx, |u_y|/dly, |u_z|/dlz, B Kw/C),
+                             ! B = max|b*|, Kw = max k^2/(1 + de^2 k^2) over the dealiased modes
+                             ! (whistler), C = sqrt(3) (eSSPIFRK3) or 0.63 (gear3).
+  reset_method = 'decrement'  !'multiply'  => multiply by a factor of 0.5
+                             !'decrement' => decrement the top integer of dt
+  increase_dt = 0e+0         !When max dt computed from the cfl condition is
+                             ! larger than this value, set dt = increase_dt.
+
+                             ! When the file 'dt_adjust' including a float number is created,
+                             ! dt will be manually adjusted to that value while running.
+/
+
+!==============================================================================
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3' ! 'gear3' or 'eSSPIFRK3'
+/
+
+!==============================================================================
+&operation_parameters
+  nonlinear = T
+/
+
+!==============================================================================
+&physical_parameters
+  eta     = 1.0d+3  ! hyper resistivity ~ eta*(k^2/k2_max)^eta_exp (zero at k = 0)
+  eta_exp = 3
+  de      = 5.0d-2  ! electron inertial length in units of the box length/2pi
+/
+
+!==============================================================================
+&initial_condition
+  init_type = 'zero'
+  !init_type = 'single_mode'  ! helical mode: mode_k[xyz], mode_amp, mode_hel = +-1, plus b0
+  !init_type = 'OT3'          ! plus b0
+  !init_type = 'random'       ! rms b1 in the band kmin(d) <= |k_d| <= kmax(d), plus b0
+  !init_type = 'restart'      ! b0 is read from the restart files
+  init_seed = -1              ! < 0: system clock; >= 0: reproducible random IC
+/
+
+!==============================================================================
+&initial_condition_params
+  b0 = 0.d0  0.d0  1.d0       ! guide field (the k = 0 mode of b)
+  b1 = 1.d-1
+  kmin = 0.d0  0.d0  0.d0
+  kmax = 3.d0  3.d0  3.d0
+  mode_kx  = 0
+  mode_ky  = 0
+  mode_kz  = 1
+  mode_amp = 1.d-2
+  mode_hel = 1
+/
+
+!==============================================================================
+!  forced_fields among bx, by, bz (elsasser = .false. only); the forcing is
+!  projected onto div f = 0, then scaled to ene_inj when fix_power = .true.
+&force
+  driven = T
+  elsasser = .false.
+  fix_power = .true.
+  ene_inj = 1.0d0
+  kmin = 0.d0  0.d0  1.d0
+  kmax = 1.0d0  1.0d0  1.d0
+  nfields = 3
+  stir_seed = -1              ! < 0: system clock; >= 0: reproducible forcing
+/
+&forced_fields
+  field_names = 'bx'       , 'by'       , 'bz'
+  amplitudes  =  1.0       ,  1.0       ,  1.0
+  frequencies = (0.9, -0.6), (0.9, -0.6), (0.9, -0.6)
+/
+
+!==============================================================================
+&terminate
+  max_wall_time   = 9.5             ! The simulation will be terminated when the wall
+                                    ! time exceeds this value (in the unit of hour).
+
+  terminate_file_name = 'terminate' ! The simulation will be terminated when the file
+                                    ! named this value is created in the root directory
+                                    ! in the middle of simulaiton.
+/
+
+!==============================================================================
+&diagnostics_parameters
+  write_intvl         = 0.1d0  ! output every this value.
+  write_intvl_2D      = 5.0d0  ! output every this value.
+  write_intvl_3D      = 0.0d0  ! output every this value.
+/
+
+!==============================================================================
+&restart_parameters
+  save_restart_intvl = 1.0d0      ! save every this value.
+  restart_dir = './restart/'
+/
+
+!==============================================================================
+!  EMHD supports P_m = P_s = 1 only
+&parallelization
+  P_m = 1
+  P_s = 1
+/

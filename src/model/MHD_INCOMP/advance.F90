@@ -994,7 +994,7 @@ contains
 
     integer :: i, j, k, l
     real   (8) :: ux_rms, uy_rms, uz_rms, bx_rms, by_rms, bz_rms
-    real   (8) :: max_vel_x, max_vel_y, max_vel_z , dt_cfl, dt_digit
+    real   (8) :: max_vel_x, max_vel_y, max_vel_z , dt_cfl, dt_digit, dt_old
     !$acc declare create(ux_rms, uy_rms, uz_rms, bx_rms, by_rms, bz_rms)
 
     if (proc0) call put_time_stamp(timer_nonlinear_terms)
@@ -1139,12 +1139,18 @@ contains
         endif
       endif
 
+      ! When the file 'dt_adjust' including a float number is created,
+      ! dt will be manually adjusted to that value while running.
+      ! This is done only at the first stage of a step, like the CFL reset
+      ! above, so a step never mixes two dt values, and a change restarts
+      ! the gear sequence.
+      dt_old = dt
+      call dt_adjust_while_running()
+      if (dt /= dt_old) counter = 1
+
+      ! dt and counter may have changed on the host
       !$acc update device (dt, counter)
     endif
-
-    ! When the file 'dt_adjust' including a float number is created,
-    ! dt will be manually adjusted to that value while running.
-    call dt_adjust_while_running() 
 
     ! 2. Calculate nonlinear terms in real space
     !$acc data present(w_r, flx_r)

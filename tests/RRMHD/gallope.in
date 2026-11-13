@@ -1,0 +1,108 @@
+!--------------------------------------------------!
+!     INPUTS for RRMHD (TSUBAME4.0 validation)     !
+!     base case; variants: tests/RRMHD/setup_runs.sh
+!--------------------------------------------------!
+&box_parameters
+  lx = 1.0 ! to be multiplied by 2pi
+  ly = 1.0 ! to be multiplied by 2pi
+  lz = 1.0 ! to be multiplied by 2pi
+
+  nlx = 64
+  nly = 64
+  nlz = 32
+/
+
+!==============================================================================
+&time_parameters
+  dt    = 1.0d-3
+  nstep = 200
+  cfl   = 1.0d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+!==============================================================================
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+!==============================================================================
+&operation_parameters
+  nonlinear = T
+/
+
+!==============================================================================
+&physical_parameters
+  beta    = 1.0d0         ! plasma beta
+  gamma   = 1.666666666666667d0 ! adiabatic index
+  q       = 1.5d0         ! shear parameter (3/2: Keplerian)
+  kappa_b = 0.2d0         ! background magnetic-field gradient
+  kappa_p = 0.3d0         ! background pressure gradient
+
+  ! perp hyper dissipation ~ nu_x*(kprp^2/kprp_max^2)^exp
+  nupe_x  = 1d+1
+  nupe_x_exp  = 4
+  etape_x = 1d+1
+  etape_x_exp = 4
+  nupa_x  = 1d+1
+  nupa_x_exp  = 4
+  etapa_x = 1d+1
+  etapa_x_exp = 4
+
+  ! para hyper dissipation ~ nu_z*(kz^2/kz_max^2)^exp
+  nupe_z  = 1d+0
+  nupe_z_exp  = 4
+  etape_z = 1d+0
+  etape_z_exp = 4
+  nupa_z  = 1d+0
+  nupa_z_exp  = 4
+  etapa_z = 1d+0
+  etapa_z_exp = 4
+/
+
+!==============================================================================
+&initial_condition
+  init_type = 'OT3'
+  !init_type = 'single_mode'
+  !init_type = 'random'
+  !init_type = 'restart'
+  init_seed = 1
+  mode_kx = 1
+  mode_ky = 0
+  mode_kz = 1
+  amp_phi = 1.d-6
+  amp_psi = 0.d0
+  amp_upa = 0.d0
+  amp_bpa = 0.d0
+/
+
+!==============================================================================
+!  RRMHD has no forcing: driven = T stops the run
+&force
+  driven = F
+/
+
+!==============================================================================
+&terminate
+  max_wall_time   = 0.5
+  terminate_file_name = 'terminate'
+/
+
+!==============================================================================
+&diagnostics_parameters
+  write_intvl         = 0.01d0
+  write_intvl_2D      = 0.1d0
+  write_intvl_3D      = 0.0d0
+/
+
+!==============================================================================
+&restart_parameters
+  save_restart_intvl = 10.0d0
+  restart_dir = './restart/'
+/
+
+!==============================================================================
+&parallelization
+  P_m = 1
+  P_s = 1
+/

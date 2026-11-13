@@ -1,0 +1,42 @@
+diff --git a/src/gallope.F90 b/src/gallope.F90
+index 13641da..7c21e25 100644
+--- a/src/gallope.F90
++++ b/src/gallope.F90
+@@ -58,7 +58,7 @@ program gallope
+   if(tt == 0.d0) then ! skip when restarting
+     if(write_intvl         > 0.d0) call loop_diagnostics
+     if(write_intvl_2D      > 0.d0) call loop_diagnostics_2D
+-    ! if(write_intvl_3D      > 0.d0) call loop_io_3D
++    if(write_intvl_3D      > 0.d0) call loop_io_3D
+     ! if(write_intvl_kpar    > 0.d0) call loop_diagnostics_kpar
+     ! if(write_intvl_SF2     > 0.d0) call loop_diagnostics_SF2 
+     ! if(write_intvl_nltrans > 0.d0) call loop_diagnostics_nltrans
+@@ -70,7 +70,7 @@ program gallope
+ 
+     if(check_write_now(write_intvl        ) .or. &
+        check_write_now(write_intvl_2D     ) .or. &
+-       ! check_write_now(write_intvl_3D     ) .or. &
++       check_write_now(write_intvl_3D     ) .or. &
+        ! check_write_now(write_intvl_kpar   ) .or. &
+        ! check_write_now(write_intvl_SF2    ) .or. &
+        ! check_write_now(write_intvl_nltrans) .or. &
+@@ -80,7 +80,7 @@ program gallope
+ 
+        if(check_write_now(write_intvl        )) call loop_diagnostics         ! output for time history & spectra
+        if(check_write_now(write_intvl_2D     )) call loop_diagnostics_2D      ! output for cross seciton of fields
+-       ! if(check_write_now(write_intvl_3D     )) call loop_io_3D               ! output for full 3D fields
++       if(check_write_now(write_intvl_3D     )) call loop_io_3D               ! output for full 3D fields
+        ! if(check_write_now(write_intvl_kpar   )) call loop_diagnostics_kpar    ! output for kpar & delta b/b0 using k-filtering
+        ! if(check_write_now(write_intvl_SF2    )) call loop_diagnostics_SF2     ! output for 2nd order structure function
+        ! if(check_write_now(write_intvl_nltrans)) call loop_diagnostics_nltrans ! output for shell-to-shell transfer function
+@@ -107,8 +107,8 @@ program gallope
+   if(proc0) print *, 'Finish loop_diagnostics'
+   if(write_intvl_2D      > 0.d0) call loop_diagnostics_2D
+   if(proc0) print *, 'Finish loop_diagnostics_2D'
+-  ! if(write_intvl_3D      > 0.d0) call loop_io_3D
+-  ! if(proc0) print *, 'Finish loop_diagnostics_3D'
++  if(write_intvl_3D      > 0.d0) call loop_io_3D
++  if(proc0) print *, 'Finish loop_io_3D'
+   ! if(write_intvl_kpar    > 0.d0) call loop_diagnostics_kpar
+   ! if(proc0) print *, 'Finish loop_diagnostics_kpar'
+   ! if(write_intvl_SF2     > 0.d0) call loop_diagnostics_SF2

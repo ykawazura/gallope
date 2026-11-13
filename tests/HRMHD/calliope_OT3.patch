@@ -1,0 +1,13 @@
+--- a/src/model/HRMHD/fields.F90
++++ b/src/model/HRMHD/fields.F90
+@@ -389,8 +389,8 @@
+     ! compute r2c transform
+     call p3dfft_ftran_r2c(phi_r, phi, 'fft'); phi = phi/nlx/nly/nlz
+     call p3dfft_ftran_r2c(psi_r, psi, 'fft'); psi = psi/nlx/nly/nlz
+-    call p3dfft_ftran_r2c(upa_r, psi, 'fft'); upa = upa/nlx/nly/nlz
+-    call p3dfft_ftran_r2c(bpa_r, psi, 'fft'); bpa = bpa/nlx/nly/nlz
++    call p3dfft_ftran_r2c(upa_r, upa, 'fft'); upa = upa/nlx/nly/nlz
++    call p3dfft_ftran_r2c(bpa_r, bpa, 'fft'); bpa = bpa/nlx/nly/nlz
+     do j = iky_st, iky_en
+       do k = ikz_st, ikz_en
+         do i = ikx_st, ikx_en

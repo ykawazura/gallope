@@ -262,6 +262,85 @@ def plot_semilogx1d_many(xs, ys, xlab, legends, ls, xmin='', xmax='', ymin='', y
   return fig
 
 
+def plot_semilogx1d_time(x, ys, tt, xlab, clab='', ylab='', title='', cmap=None,
+                         xmin='', xmax='', ymin='', ymax='', vline_at=None, hline_at=None,
+                         hline_ls=None, mean_line=False,
+                         term=True, save=False):
+  """One curve per output time, coloured by time, with a time colourbar.
+
+  x        : 1D abscissa, shared by every curve
+  ys       : 2D array [nt, x.size]; ys[i] is the curve at tt[i]
+  tt       : 1D array of times, same length as ys
+  clab     : colourbar label (math mode, without the $); defaults to 't'
+  vline_at : draw a dashed vertical line here (e.g. the ion Larmor scale)
+  hline_at : horizontal reference line(s); a scalar or a sequence
+  hline_ls : line style(s) for hline_at, matching it element by element.
+             A single string applies to all; None means dotted (the default).
+  mean_line: overlay the time mean of ys as a thick black line, as in
+             Meyrand et al. 2021 fig. 6
+  """
+  if cmap is None:
+    cmap = default_colormap_seq
+
+  tt = np.asarray(tt)
+  ys = np.asarray(ys)
+  nt = tt.size
+
+  fig = plt.figure(figsize=(9, 8))
+  ax = plt.gca()
+
+  norm = mpl.colors.Normalize(vmin=tt.min(), vmax=tt.max())
+  for i in range(nt):
+    ax.semilogx(x, ys[i], lw=2, color=cmap(norm(tt[i])))
+
+  if hline_at is not None:
+    hs = list(hline_at) if np.iterable(hline_at) else [hline_at]
+    if hline_ls is None or isinstance(hline_ls, str):
+      lss = [hline_ls]*len(hs)
+    else:
+      lss = list(hline_ls)
+    for h, ls in zip(hs, lss):
+      ax.axhline(h, color='k', ls=(':' if ls is None else ls), lw=2)
+  if vline_at is not None:
+    ax.axvline(vline_at, color='k', ls='--', lw=2)
+
+  # drawn last so it sits on top of the bundle of coloured curves
+  if mean_line:
+    ax.semilogx(x, ys.mean(axis=0), color='k', lw=3, zorder=10)
+
+  plt.xlabel(xlab)
+  if xmin != '':
+    plt.xlim(xmin=xmin)
+  if xmax != '':
+    plt.xlim(xmax=xmax)
+  if ymin != '':
+    plt.ylim(ymin=ymin)
+  if ymax != '':
+    plt.ylim(ymax=ymax)
+  if len(ylab) > 0:
+    plt.ylabel(ylab)
+  if len(title) > 0:
+    plt.title(title)
+  ax.tick_params(which='both', direction='in')
+
+  divider = make_axes_locatable(ax)
+  cax = divider.append_axes("right", size="5%", pad=0.05)
+  sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+  sm.set_array([])
+  cb = plt.colorbar(sm, cax=cax)
+  cb.set_label(r'$' + (clab if len(clab) > 0 else 't') + r'$')
+  cb.locator = ticker.MaxNLocator(nbins=6)
+  cb.update_ticks()
+
+  if save:
+    print ('--   ' + title + '   --')
+    plt.savefig(save)
+
+  if term:
+    plt.show()
+  return fig
+
+
 def movie_log1d_many(t, xs, ys, legends, ls, legendloc, xlab='', title='', save=False):
 
   fig = plt.figure(figsize=(9, 8))

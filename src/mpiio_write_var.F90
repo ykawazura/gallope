@@ -23,7 +23,6 @@
     call MPI_TYPE_FREE(newtype,ierror)
 
     ! update displacement for the next write operation
+    ! bytes is the size of data_type (MPI_TYPE_SIZE), so it already covers
+    ! both parts of a complex number.
     disp = disp + sizes(1)*sizes(2)*sizes(3)*bytes
-    if (data_type == complex_type) then
-       disp = disp + sizes(1)*sizes(2)*sizes(3)*bytes
-    end if

@@ -44,6 +44,9 @@ Set `MODEL` in `Makefile.in`:
 | `MHD_INCOMP`   | Incompressible MHD |
 | `RMHD`         | Reduced MHD        |
 | `KRMHD`        | Kinetic reduced MHD (RMHD + passive Hermite moments `g_m`) |
+| `RRMHD`        | Rotating reduced MHD (RMHD + compressive `upa`, `bpa`; shear `q`, background gradients `kappa_b`, `kappa_p`) |
+| `HRMHD`        | Hall reduced MHD (kinetic/inertial Alfvén waves; `phi`, `psi`, `upa`, `bpa`) |
+| `EMHD`         | Electron MHD with electron inertia (`bx`, `by`, `bz`) |
 
 
 ---
@@ -71,7 +74,7 @@ Set the target environment (`arch`) and the physics model (`MODEL`).
 
 ```make
 arch = miyabi           # Loads configuration from arch/miyabi.in
-MODEL = MHD_INCOMP      # Options: MHD_INCOMP, RMHD, KRMHD
+MODEL = MHD_INCOMP      # Options: MHD_INCOMP, RMHD, KRMHD, RRMHD, HRMHD, EMHD
 ````
 
 ### 2. Configure `arch/<arch>.in`
@@ -175,7 +178,7 @@ total from timer is:     270.398 min
 |---|---|
 |**`gallope.out.nc`**|netCDF file containing global diagnostics (energies) and 1D spectra.|
 |**`out2d/`**|Time evolution of 2D slices (cross-sections) of fields.|
-|**`out3d/`**|Time evolution of full 3D field data.|
+|**`out3d/`**|Fourier coefficients of the full 3D fields, written every `write_intvl_3D` (`0` = off): one record per write, a `complex(8)` array `(nlz/2+1, nly, nlx)` in Fortran order (kz fastest). The times are in `out3d/time.dat`.|
 |**`restart/`**|Snapshots generated at the end of the run (or periodically).|
 
 To restart a simulation, set `init_type = 'restart'` in your `gallope.in` file.
@@ -235,7 +238,12 @@ rather than the tip of `main`: later commits will move on from the paper.
 │   ├── gallope/                # application-level scaling
 │   ├── p3dfft_vs_cufftmp/      # FFT-level scaling
 │   └── README.md
-├── tests/              # Reference runs with their recorded stdout
+├── tests/              # Validation runs: inputs, drivers and reports
+│   ├── HRMHD/                  # also RRMHD/, EMHD/: setup_runs.sh, check_runs.py, validation_tsubame.md
+│   ├── release/                # checks of a release against the previous one
+│   ├── RMHD/                   # also MHD_INCOMP(*)/, regression_check/: reference runs with their stdout
+│   ├── compare_calliope.py     # field-by-field comparison with Calliope
+│   └── run_cases-tsubame.sh    # TSUBAME4.0 job driver for the validation cases
 ├── Makefile.in         # Main build 
 └── README.md
 ```

@@ -3,13 +3,16 @@
 #=======================================================================
 
 # Set architecture name; 'arch/$(arch).in' will be included.
-arch = miyabi
+arch = flow
 
 # MODEL :
 # 	MHD_INCOMP     ! incompressible MHD
 # 	RMHD           ! reduced MHD
 # 	KRMHD          ! kinetic RMHD (4D: RMHD + passive Hermite moments g_m)
-MODEL = MHD_INCOMP
+# 	RRMHD          ! rotating reduced MHD
+# 	HRMHD          ! Hall reduced MHD
+# 	EMHD           ! electron MHD
+MODEL = KRMHD
 
 # debug
 DEBG = no

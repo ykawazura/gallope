@@ -404,7 +404,7 @@ contains
 !! @brief   2D Orszag Tang problem initialization
 !-----------------------------------------------!
   subroutine init_OT2
-    use grid, only: xx, yy
+    use grid, only: xx, yy, kprp2
     use grid, only: nlx, nlx_local, nly, nlz_padded
     use grid, only: nkx, nky_local, nkz
     use grid, only: ntot
@@ -441,13 +441,14 @@ contains
     call ftran_r2c(phi_r, phi)
     call ftran_r2c(psi_r, psi)
   
-    !$acc data present(phi, psi)
+    !$acc data present(phi, omg, psi, kprp2)
     !$acc parallel loop collapse(3)
     do i = 1, nkx
       do j = 1, nky_local
         do k = 1, nkz
           phi(k,j,i) = phi(k,j,i)/ntot
           psi(k,j,i) = psi(k,j,i)/ntot
+          omg(k,j,i) = phi(k,j,i)*(-kprp2(k,j,i))
         enddo
       enddo
     enddo

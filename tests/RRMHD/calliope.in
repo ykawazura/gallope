@@ -1,0 +1,75 @@
+!--------------------------------------------------!
+!  Calliope RRMHD input matching tests/RRMHD/gallope.in (rr_ot3_np1/np4)
+!  for the deterministic Gallope <-> Calliope comparison (V8).
+!  Needs Calliope develop with tests/RRMHD/calliope_OT3.patch applied.
+!  One namelist item per line: nvfortran stops a group at a semicolon.
+!  All eight dissipation exponents are set and equal: Calliope has no
+!  default for them, and its diagnostics use the perp exponents for upa, bpa.
+!--------------------------------------------------!
+&mpi_settings
+  dim_decomp = 2
+/
+&box_parameters
+  lx = 1.0
+  ly = 1.0
+  lz = 1.0
+  nlx = 64
+  nly = 64
+  nlz = 32
+  pruned = .false.
+/
+&time_parameters
+  dt    = 1.0d-3
+  nstep = 200
+  cfl   = 1.0d0
+  reset_method = 'multiply'
+  increase_dt = 0e+0
+/
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+&operation_parameters
+  nonlinear = T
+/
+&physical_parameters
+  beta    = 1.0d0
+  gamma   = 1.666666666666667d0
+  q       = 1.5d0
+  kappa_b = 0.2d0
+  kappa_p = 0.3d0
+  nupe_x  = 1d+1
+  nupe_x_exp  = 4
+  etape_x = 1d+1
+  etape_x_exp = 4
+  nupa_x  = 1d+1
+  nupa_x_exp  = 4
+  etapa_x = 1d+1
+  etapa_x_exp = 4
+  nupe_z  = 1d+0
+  nupe_z_exp  = 4
+  etape_z = 1d+0
+  etape_z_exp = 4
+  nupa_z  = 1d+0
+  nupa_z_exp  = 4
+  etapa_z = 1d+0
+  etapa_z_exp = 4
+/
+&initial_condition
+  init_type = 'OT3'
+/
+&force
+  driven = F
+/
+&terminate
+  max_wall_time   = 0.5
+  terminate_file_name = 'terminate'
+/
+&diagnostics_parameters
+  write_intvl       = 0.01d0
+  write_intvl_2D    = 0.1d0
+  write_intvl_3D    = 0.0d0
+/
+&restart_parameters
+  save_restart_intvl = 10.0d0
+  restart_dir = './restart/'
+/
