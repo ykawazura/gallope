@@ -11,6 +11,7 @@ arch = miyabi
 # 	KRMHD          ! kinetic RMHD (4D: RMHD + passive Hermite moments g_m)
 # 	RRMHD          ! rotating reduced MHD
 # 	HRMHD          ! Hall reduced MHD
+# 	EMHD           ! electron MHD
 MODEL = MHD_INCOMP
 
 # debug

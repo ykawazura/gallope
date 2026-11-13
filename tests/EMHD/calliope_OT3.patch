@@ -1,0 +1,98 @@
+--- a/src/model/EMHD/fields.F90
++++ b/src/model/EMHD/fields.F90
+@@ -58,6 +58,9 @@
+     if(init_type == 'random') then
+       call init_random
+     endif
++    if(init_type == 'OT3') then
++      call init_OT3
++    endif
+     if(init_type == 'restart') then
+       call restart
+     endif
+@@ -365,7 +368,85 @@
+   end subroutine init_random
+ 
+ 
++!-----------------------------------------------!
++!> @brief   3D Orszag Tang type initialization for the
++!!          Gallope <-> Calliope comparison (Gallope
++!!          tests/EMHD/calliope_OT3.patch)
++!!            bx = -sin(y/y0 + z/z0)
++!!            by =  sin(2x/x0 + z/z0)
++!!            bz =  0
++!!          plus the k = 0 mode b0 (x0 = lx/(2 pi) etc.)
+ !-----------------------------------------------!
++  subroutine init_OT3
++    use p3dfft
++    use params, only: pi
++    use grid, only: lx, ly, lz, xx, yy, zz, kx, ky, kz
++    use grid, only: nlx, nly, nlz
++    use grid, only: ilx_st, ily_st, ilz_st, ilx_en, ily_en, ilz_en
++    use grid, only: ikx_st, iky_st, ikz_st, ikx_en, iky_en, ikz_en
++    use mp, only: proc0
++    use params, only: inputfile
++    use file, only: get_unused_unit
++    implicit none
++    real(r8), allocatable, dimension(:,:,:) :: bx_r, by_r
++    real(r8) :: x0, y0, z0, kmin(3), kmax(3), b1(3)
++    integer :: i, j, k
++    integer  :: unit, ierr
++    namelist /initial_condition_params/ kmin, kmax, b0, b1
++
++    if(proc0) then
++      print *, '3D Orszag Tang initialization'
++    endif
++
++    b0 = 0.d0
++    call get_unused_unit (unit)
++    open(unit=unit,file=inputfile,status='old')
++    read(unit,nml=initial_condition_params,iostat=ierr)
++        if (ierr/=0) write(*,*) "Reading initial_condition_params failed"
++    close(unit)
++
++    x0 = lx/(2.d0*pi)
++    y0 = ly/(2.d0*pi)
++    z0 = lz/(2.d0*pi)
++
++    allocate(bx_r(ily_st:ily_en, ilz_st:ilz_en, ilx_st:ilx_en), source=0.d0)
++    allocate(by_r(ily_st:ily_en, ilz_st:ilz_en, ilx_st:ilx_en), source=0.d0)
++
++    do i = ilx_st, ilx_en
++      do k = ilz_st, ilz_en
++        do j = ily_st, ily_en
++          bx_r(j, k, i) = -sin(yy(j)/y0 + zz(k)/z0)
++          by_r(j, k, i) =  sin(2.d0*xx(i)/x0 + zz(k)/z0)
++        end do
++      end do
++    end do
++
++    call p3dfft_ftran_r2c(bx_r, bx, 'fft'); bx = bx/nlx/nly/nlz
++    call p3dfft_ftran_r2c(by_r, by, 'fft'); by = by/nlx/nly/nlz
++    bz = 0.d0
++
++    do j = iky_st, iky_en
++      do k = ikz_st, ikz_en
++        do i = ikx_st, ikx_en
++          if (kx(i) == 0.d0 .and. ky(j) == 0.d0 .and. kz(k) == 0.d0) then
++            bx(i, k, j) = b0(1)
++            by(i, k, j) = b0(2)
++            bz(i, k, j) = b0(3)
++          endif
++        end do
++      end do
++    end do
++
++    bx_old = bx
++    by_old = by
++    bz_old = bz
++
++    deallocate(bx_r)
++    deallocate(by_r)
++  end subroutine init_OT3
++
++
++!-----------------------------------------------!
+ !> @author  YK
+ !! @date    29 Dec 2018
+ !! @brief   Restart

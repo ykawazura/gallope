@@ -1,0 +1,109 @@
+!--------------------------------------------------!
+!     INPUTS for EMHD (TSUBAME4.0 validation)      !
+!     base case; variants: tests/EMHD/setup_runs.sh
+!     One namelist item per line: nvfortran stops
+!     reading a group at ';'.
+!--------------------------------------------------!
+&box_parameters
+  lx = 1.0 ! to be multiplied by 2pi
+  ly = 1.0 ! to be multiplied by 2pi
+  lz = 1.0 ! to be multiplied by 2pi
+
+  nlx = 64
+  nly = 64
+  nlz = 32
+/
+
+!==============================================================================
+&time_parameters
+  dt    = 1.0d-3
+  nstep = 200
+  cfl   = 1.0d0
+  reset_method = 'decrement'
+  increase_dt = 0e+0
+/
+
+!==============================================================================
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3'
+/
+
+!==============================================================================
+&operation_parameters
+  nonlinear = T
+/
+
+!==============================================================================
+&physical_parameters
+  ! (1 + de^2 k^2) db/dt = curl(u x b*) + f - eta*(k^2/k2_max)^eta_exp b
+  eta     = 1.0d+2
+  eta_exp = 2
+  de      = 1.0d-1
+/
+
+!==============================================================================
+&initial_condition
+  init_type = 'OT3'
+  !init_type = 'single_mode'
+  !init_type = 'random'
+  !init_type = 'restart'
+  !init_type = 'zero'
+  init_seed = 1
+/
+
+!==============================================================================
+&initial_condition_params
+  b0 = 0.d0  0.d0  1.d0
+  b1 = 5.d-1
+  kmin = 0.d0  0.d0  0.d0
+  kmax = 3.d0  3.d0  3.d0
+  mode_kx  = 0
+  mode_ky  = 0
+  mode_kz  = 1
+  mode_amp = 1.d-2
+  mode_hel = 1
+/
+
+!==============================================================================
+!  forced_fields among bx, by, bz; the forcing is projected
+!  onto div f = 0 before fix_power is applied
+&force
+  driven = F
+  elsasser = .false.
+  fix_power = .true.
+  ene_inj = 1.0d0
+  kmin = 0.d0  0.d0  1.d0
+  kmax = 1.0d0  1.0d0  1.d0
+  nfields = 3
+  stir_seed = 1
+/
+&forced_fields
+  field_names = 'bx'       , 'by'       , 'bz'
+  amplitudes  =  1.0       ,  1.0       ,  1.0
+  frequencies = (0.9, -0.6), (0.9, -0.6), (0.9, -0.6)
+/
+
+!==============================================================================
+&terminate
+  max_wall_time   = 0.5
+  terminate_file_name = 'terminate'
+/
+
+!==============================================================================
+&diagnostics_parameters
+  write_intvl         = 0.01d0
+  write_intvl_2D      = 0.1d0
+  write_intvl_3D      = 0.0d0
+/
+
+!==============================================================================
+&restart_parameters
+  save_restart_intvl = 10.0d0
+  restart_dir = './restart/'
+/
+
+!==============================================================================
+&parallelization
+  P_m = 1
+  P_s = 1
+/

@@ -40,6 +40,9 @@ SRC_RRMHD = $(SRC_MHD_INCOMP)
 ### List of files for 'HRMHD'
 SRC_HRMHD = $(SRC_MHD_INCOMP)
 
+### List of files for 'EMHD'
+SRC_EMHD = $(SRC_MHD_INCOMP)
+
 OBJ = $(SRC_$(MODEL):.F90=.o)
 
 gallope : $(OBJ)
