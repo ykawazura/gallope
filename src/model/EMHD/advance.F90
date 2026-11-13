@@ -518,7 +518,7 @@ contains
 
     integer :: i, j, k
     real   (8) :: vx, vy, vz, bm, c_s, rate
-    real   (8) :: dt_cfl, dt_digit
+    real   (8) :: dt_cfl, dt_digit, dt_old
 
     if (proc0) call put_time_stamp(timer_nonlinear_terms)
 
@@ -612,14 +612,18 @@ contains
         endif
       endif
 
+      ! When the file 'dt_adjust' including a float number is created,
+      ! dt will be manually adjusted to that value while running.
+      ! This is done only at the first stage of a step, like the CFL reset
+      ! above, so a step never mixes two dt values, and a change restarts
+      ! the gear sequence.
+      dt_old = dt
+      call dt_adjust_while_running()
+      if (dt /= dt_old) counter = 1
+
+      ! dt and counter may have changed on the host
       !$acc update device (dt, counter)
     endif
-
-    ! When the file 'dt_adjust' including a float number is created,
-    ! dt will be manually adjusted to that value while running.
-    call dt_adjust_while_running()
-    ! dt_adjust_while_running changes dt on the host only
-    !$acc update device (dt)
 
     ! 2. b* x u in real space, back to Fourier space, curl
     call nonlinear_to_spectral(w_r, nonlin_r, nonlin)
