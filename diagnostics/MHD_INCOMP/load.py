@@ -169,8 +169,16 @@ import os
 
 label_series = {'ux': r'$u_x$', 'uy': r'$u_y$', 'uz': r'$u_z$', 'bx': r'$B_x$', 'by': r'$B_y$', 'bz': r'$B_z$'}
 
+# A production run writes one line per mode per step, so the merged history of
+# the MRI run is a few GB -- more than the mode plots are worth at that size.
+# Raise this to read one anyway.
+MODES_MAX_BYTES = 200 << 20
+
 filename = input_dir+runname+'.modes.out'+restart_num
-if os.path.isfile(filename):
+if os.path.isfile(filename) and os.path.getsize(filename) > MODES_MAX_BYTES:
+  print ('skipping %s (%.1f GB); raise MODES_MAX_BYTES in load.py to read it'
+         % (filename, os.path.getsize(filename)/float(1 << 30)))
+elif os.path.isfile(filename):
   try:
     data = np.loadtxt(filename, usecols=[0,2,3,4,5,6])
     name = np.loadtxt(filename, usecols=[1], dtype = "unicode")
@@ -178,11 +186,15 @@ if os.path.isfile(filename):
     fldnames_unique = np.unique(name)
     nfld = fldnames_unique.size
 
-    tt_unique = np.unique(data.T[0])
+    # return_inverse gives each line's row and column outright; searching for
+    # them line by line is quadratic and does not survive a production run.
+    tt_unique, time_idx = np.unique(data.T[0], return_inverse=True)
     ntt = tt_unique.size
 
-    modes_unique = np.unique((data.T[1:4]).T, axis=0)
+    modes_unique, mode_idx = np.unique((data.T[1:4]).T, axis=0, return_inverse=True)
     nmodes = modes_unique.shape[0]
+    time_idx = np.ravel(time_idx)
+    mode_idx = np.ravel(mode_idx)
 
     tt_ = {}
     f_  = {}
@@ -190,14 +202,9 @@ if os.path.isfile(filename):
       tt_[n] = np.zeros([ntt, nmodes])
       f_ [n] = np.zeros([ntt, nmodes], dtype=complex)
 
-    for n, d in zip(name, data):
-      time = d[0]
-      mode = d[1:4]
-      time_idx = np.argwhere(tt_unique == time)[0][0]
-      mode_idx = np.argwhere([np.array_equal(x, mode) for x in modes_unique])[0][0]
-
-      tt_[n][time_idx, mode_idx] = time
-      f_ [n][time_idx, mode_idx] = d[4] + 1j*d[5]
+      sel = (name == n)
+      tt_[n][time_idx[sel], mode_idx[sel]] = data[sel, 0]
+      f_ [n][time_idx[sel], mode_idx[sel]] = data[sel, 4] + 1j*data[sel, 5]
   except:
     pass
 
