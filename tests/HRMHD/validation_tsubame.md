@@ -83,10 +83,13 @@ Without that subtraction, the residual is 19 % of max\|dW/dt\|, and it is the dr
 
 ## Issues found during validation
 
-- **nvfortran silently truncates a namelist group at `;`.** An earlier version of the input
-  had lines such as `nupe_x = 1d+1 ; nupe_x_exp = 4`. nvfortran read `nupe_x` and left every
-  later item of `&physical_parameters` at its default (exponents 1, coefficients 0) without an
-  error. Calliope (gfortran, one item per line) read everything. V8 exposed it: the
+- **nvfortran stops reading a namelist group at `;`.** An earlier version of the input
+  had lines such as `nupe_x = 1d+1 ; nupe_x_exp = 4`. nvfortran read `nupe_x`, returned
+  iostat = 233, and left every later item of `&physical_parameters` at its default
+  (exponents 1, coefficients 0). Gallope reports a nonzero iostat with the single line
+  `Reading physical_parameters failed` and continues, so the run went on with the defaults.
+  A `;` inside a `!` comment is harmless (both checked with nvfortran 26.1 in a standalone
+  program). Calliope (gfortran, one item per line) read everything. V8 exposed it: the
   difference was 7.9e-4 and grew linearly in time. All inputs now have one item per line,
   and V0 checks the parameters recorded in the output.
 - **Calliope HRMHD OT3 initial condition.** `src/model/HRMHD/fields.F90` transforms `upa_r`

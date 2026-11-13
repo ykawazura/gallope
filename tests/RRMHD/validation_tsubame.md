@@ -132,8 +132,9 @@ are much larger than the eSSPIFRK3 truncation drift.
 
 ## Issues found during validation
 
-- **nvfortran silently truncates a namelist group at `;`.** The first version of
-  `tests/RRMHD/gallope.in` had lines with two items separated by `;`, as found in HRMHD.
+- **nvfortran stops reading a namelist group at `;`.** The first version of
+  `tests/RRMHD/gallope.in` had lines with two items separated by `;`, as found in HRMHD:
+  nvfortran returns a nonzero iostat, which Gallope reports in one line and ignores.
   All inputs now have one item per line. V0 checks that every parameter recorded in
   `gallope.out.nc` equals the input, and that the base input holds the intended values.
 - **Calliope RRMHD OT3 initial condition.** `src/model/RRMHD/fields.F90` transforms `upa_r`
