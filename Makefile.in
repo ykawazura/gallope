@@ -12,6 +12,7 @@ arch = flow
 # 	RRMHD          ! rotating reduced MHD
 # 	HRMHD          ! Hall reduced MHD
 # 	EMHD           ! electron MHD
+# 	MHD_COMP_ISOTH ! isothermal compressible MHD
 MODEL = KRMHD
 
 # debug

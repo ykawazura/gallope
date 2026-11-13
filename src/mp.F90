@@ -12,7 +12,7 @@ module mp
 
   public :: init_mp, finish_mp
   public :: init_comm_layout
-  public :: halo_exchange_m
+  public :: halo_exchange_m, halo_exchange_x
   public :: proc_id, nproc, proc0
   public :: comm_fft, comm_m, comm_s, comm_fm
   public :: nproc_fft, iproc_fft, proc0_fft
@@ -303,6 +303,52 @@ contains
       !$acc end kernels
     end if
   end subroutine halo_exchange_m
+
+!-----------------------------------------------!
+!> @author  YK
+!! @brief   Width-1 periodic halo exchange in x over comm_fft.
+!!          f is a real-space field (nlz_padded, nly, nlx_local) whose
+!!          x slabs are distributed over comm_fft in rank order; every
+!!          rank must hold the same nlx_local. On return, halo_lo is the
+!!          x plane just below the local slab and halo_hi the one just
+!!          above, both periodic in the global x. f, halo_lo and halo_hi
+!!          are present on the device; planes are contiguous and go
+!!          straight to a GPU-aware MPI_SENDRECV via host_data use_device.
+!!          With two ranks, lower = upper, and the tags keep the two
+!!          directions apart.
+!-----------------------------------------------!
+  subroutine halo_exchange_x(f, halo_lo, halo_hi)
+    implicit none
+    real(8), dimension(:,:,:), intent(in ) :: f
+    real(8), dimension(:,:),   intent(out) :: halo_lo, halo_hi
+    integer :: n_plane, nx, lower, upper
+    integer :: status(MPI_STATUS_SIZE), ierr
+
+    nx      = size(f, 3)
+    n_plane = size(f, 1) * size(f, 2)
+
+    if (nproc_fft == 1) then
+      !$acc kernels present(f, halo_lo, halo_hi)
+      halo_lo(:,:) = f(:,:,nx)
+      halo_hi(:,:) = f(:,:,1)
+      !$acc end kernels
+      return
+    end if
+
+    lower = mod(iproc_fft - 1 + nproc_fft, nproc_fft)
+    upper = mod(iproc_fft + 1, nproc_fft)
+
+    !$acc host_data use_device(f, halo_lo, halo_hi)
+    ! own highest plane -> lower halo of the upper neighbour
+    call MPI_SENDRECV(f(1,1,nx), n_plane, MPI_DOUBLE_PRECISION, upper, 1, &
+                      halo_lo,   n_plane, MPI_DOUBLE_PRECISION, lower, 1, &
+                      comm_fft, status, ierr)
+    ! own lowest plane -> upper halo of the lower neighbour
+    call MPI_SENDRECV(f(1,1,1),  n_plane, MPI_DOUBLE_PRECISION, lower, 2, &
+                      halo_hi,   n_plane, MPI_DOUBLE_PRECISION, upper, 2, &
+                      comm_fft, status, ierr)
+    !$acc end host_data
+  end subroutine halo_exchange_x
 
 ! ************** broadcasts *****************************
 

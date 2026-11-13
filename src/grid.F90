@@ -158,8 +158,9 @@ contains
     enddo
 
     if (mod(nly, nproc_fft) > 0) then
-      print*," nly has to divide evenly by the comm_fft rank count"
+      if (proc0) print*," nly has to divide evenly by the comm_fft rank count"
       call mpi_finalize(ierr)
+      stop
     end if
 
     dlx = abs(xx_global(2) - xx_global(1))
