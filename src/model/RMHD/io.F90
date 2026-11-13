@@ -512,7 +512,7 @@ contains
 !-----------------------------------------------!
   subroutine loop_io_3D
     use fields, only: phi, psi
-    use mp, only: proc0
+    use mp, only: proc0, iproc_fft, proc0_m, proc0_s
     use time, only: tt
     use grid, only: nkx, nky, nky_local, nkz
     use mpiio, only: mpiio_write_var
@@ -531,13 +531,16 @@ contains
     subsizes(2) = nky_local
     subsizes(3) = nkx
     starts(1) = 0
-    starts(2) = 0
+    starts(2) = nky_local*iproc_fft
     starts(3) = 0
 
     !$acc update host(phi, psi)
-    
-    call mpiio_write_var(fh_phi, disp_phi, sizes, subsizes, starts, phi)
-    call mpiio_write_var(fh_psi, disp_psi, sizes, subsizes, starts, psi)
+
+    ! Only comm_fft group 0 opened the 3D files (see init_io_decomp_3d).
+    if (proc0_m .and. proc0_s) then
+      call mpiio_write_var(fh_phi, disp_phi, sizes, subsizes, starts, phi)
+      call mpiio_write_var(fh_psi, disp_psi, sizes, subsizes, starts, psi)
+    endif
 
     if(proc0) then
       write (unit=out3d_time_unit, fmt="(100es30.21)") tt, tsc
