@@ -241,6 +241,7 @@ rather than the tip of `main`: later commits will move on from the paper.
 │   └── README.md
 ├── tests/              # Validation runs: inputs, drivers and reports
 │   ├── HRMHD/                  # also RRMHD/, EMHD/: setup_runs.sh, check_runs.py, validation_tsubame.md
+│   ├── MHD_COMP_ISOTH/         # Calliope's paper tests (589 cases): make_cases.py, job-tsubame.sh, validation_tsubame.md
 │   ├── release/                # checks of a release against the previous one
 │   ├── RMHD/                   # also MHD_INCOMP(*)/, regression_check/: reference runs with their stdout
 │   ├── compare_calliope.py     # field-by-field comparison with Calliope

@@ -1,0 +1,25 @@
+#=======================================================================
+# Gate G1: build tests/MHD_COMP_ISOTH/fft_roundtrip.F90 against the
+# objects of a MHD_COMP_ISOTH build. From the repository root:
+#
+#   make arch=tsubame MODEL=MHD_COMP_ISOTH
+#   make -C tests/MHD_COMP_ISOTH -f Makefile.fft arch=tsubame
+#
+# The program is installed as bin/gallope-ISOTH_FFT so that
+# tests/run_cases-tsubame.sh can run it like a model (it reads gallope.in);
+# tests/MHD_COMP_ISOTH/setup_g1.sh makes the cases.
+#=======================================================================
+TOP = ../..
+include $(TOP)/Makefile.in
+include $(TOP)/arch/$(arch).in
+
+FLAGS += $(NETCDF_INC)
+FLAGS += -cuda -cudalib=cufftmp
+LINKER := -L${NVHPC_ROOT}/compilers/lib -lnvhpcwrapcufft -L${NVHPC_ROOT}/math_libs/lib64/ -lcufftMp -lmpi $(NETCDF_LIB)
+
+MDIR = $(TOP)/src/model/MHD_COMP_ISOTH
+OBJ  = $(filter-out $(TOP)/src/gallope.o, $(wildcard $(TOP)/src/*.o)) $(wildcard $(MDIR)/*.o)
+
+$(TOP)/bin/gallope-ISOTH_FFT : fft_roundtrip.F90 $(OBJ)
+	$(F90) -o $@ $< $(OBJ) -I$(TOP)/src $(FLAGS) $(LINKER) -acc
+	rm -f fft_roundtrip.o
