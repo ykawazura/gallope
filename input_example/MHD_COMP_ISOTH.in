@@ -1,0 +1,182 @@
+!--------------------------------------------------!
+!             INPUTS for MHD COMP ISOTH            !
+!   Isothermal compressible MHD in (ln rho, m, B), !
+!   p = cs^2 rho, cs^2 = beta0/2 (vA = 1 for B = 1,!
+!   rho = 1). Shocks: shock viscosity + SVV.       !
+!   This example: two colliding flows in x         !
+!   (1D: nly = nlz = 2), 1 GPU.                    !
+!   One namelist item per line (nvfortran stops    !
+!   reading a group at ';').                       !
+!--------------------------------------------------!
+&box_parameters
+  lx = 1.0 ! to be multiplied by 2pi
+  ly = 1.0 ! to be multiplied by 2pi
+  lz = 1.0 ! to be multiplied by 2pi
+
+  nlx = 512
+  nly = 2  ! nl = 2: the direction is not resolved (1D or 2D runs)
+  nlz = 2
+/
+
+!==============================================================================
+&time_parameters
+  dt    = 1.0d-4
+  nstep = 1000
+  cfl   = 0.5d0  ! dt_adv = cfl/sum_d max(|u_d| + c_f,d)/dl_d (sum over the directions with nl > 2)
+  reset_method = 'stop'      !'multiply'  => multiply by a factor of 0.5
+                             !'decrement' => decrement the top integer of dt
+                             !'stop'      => terminate the run
+                             !'track'     => dt = track_safety*dt_cfl when dt_cfl < dt, and also when
+                             !               dt < track_raise*dt_cfl at a step where lambda_svv is
+                             !               converged (every svv_pi_check steps), rounded down to
+                             !               track_digits significant digits
+  track_safety = 0.8d0       !Used only by 'track'; 0 < track_raise < track_safety <= 1
+  track_raise  = 0.7d0
+  track_digits = 3           !dt does not take the round-off of dt_cfl, which depends on the decomposition
+  increase_dt = 1.0d+10      !When max dt computed from the cfl condition is
+                             ! larger than this value, set dt = increase_dt.
+                             ! With 'track', dt never exceeds increase_dt.
+  ! t_end = 1.0d0            !The run stops when time reaches t_end (default: none; nstep is then an upper bound)
+
+                             ! When the file 'dt_adjust' including a float number is created,
+                             ! dt will be manually adjusted to that value while running.
+/
+
+!==============================================================================
+&scheme_parameters
+  time_step_scheme = 'eSSPIFRK3' ! only 'eSSPIFRK3' in this model
+/
+
+!==============================================================================
+&operation_parameters
+  nonlinear = T
+/
+
+!==============================================================================
+&physical_parameters
+  ! regular and hyper viscosity ~ nu*k^2 + nu_h*k^(2*nu_h_exp)
+  nu        = 0.d0  ! regular viscosity
+  nu_h      = 0.d0  ! hyper viscosity
+  nu_h_exp  = 4
+  ! regular and hyper resistivity ~ eta*k^2 + eta_h*k^(2*eta_h_exp)
+  eta       = 0.d0  ! regular resistivity
+  eta_h     = 0.d0  ! hyper resistivity
+  eta_h_exp = 4
+
+  ! regular and hyper diffusion ~ lmd*k^2 + lmd_h*k^(2*lmd_h_exp)
+  ! acts on ln(rho) and does not conserve mass (a warning is printed when lmd or lmd_h /= 0)
+  lmd       = 0.d0  ! regular diffusion
+  lmd_h     = 0.d0  ! hyper diffusion
+  lmd_h_exp = 4
+
+  beta0   = 2.d0    ! cs^2 = beta0/2
+  rho_min = 1.d-2
+
+  ! shear is not supported in Gallope: shear = .true. stops the run
+  shear  = .false.
+  q      = 0.d0
+/
+
+!==============================================================================
+&numerics_parameters
+  formulation  = 'C'     ! ds/dt = -(div m)/rho, dm/dt = -div[m u + (p + B^2/2 - q) I - B B] (only 'C')
+  visc_form    = 'flux'  ! q = rho zeta div(u) on the grid, then FFT (only 'flux')
+  filter_lnrho = .false. ! 2/3 filter on ln(rho) after each stage; .true. changes sum exp(s) (mass)
+  filter_mom   = .true.  ! 2/3 filter on m after each stage
+  filter_mag   = .true.  ! 2/3 filter on B after each stage
+  cfl_visc     = 1.0d0   ! dt_visc = cfl_visc/(largest viscous rate); SSPRK3 is stable up to 2.51
+  mass_correction = .false. ! uniform correction s(k=0) += ln(M0/M) after each step (logged in conservation.dat)
+  s_abort      = 100.d0  ! stop when |ln(rho)| > s_abort (exp overflow guard)
+  debug_nan_step = -1    ! > 0: inject a NaN at this step to test the abort
+/
+
+&shock_parameters
+  C_shock       = 2.d0   ! zeta = C_shock Delta^2 S[max(0, -div u)]; 0 disables the shock viscosity
+  shock_nmax    = 1      ! number of local-max passes (half width 1) in S
+  shock_nsmooth = 1      ! number of [1,2,1]/4 passes in S
+  shock_dl      = 0.d0   ! Delta; <= 0: min_d dl_d over the directions with nl > 2
+  shock_selftest = .false. ! write zeta of an analytic D (shock_selftest.dat) for the decomposition test
+  C_eta         = 0.d0   ! shock resistivity eta_shock = C_eta Delta^2 S[max(0, -div u)]; <= 0: off
+/
+
+&svv_parameters
+  svv_eps0     = 0.5d0   ! spectral vanishing viscosity eps_d = svv_eps0 dl_d max(|u_d| + c_f,d); <= 0: off
+  svv_mN       = 0.5d0   ! Q(|k_d|) = 0 for |k_d| <= svv_mN*k_c,d (k_c,d = 2/3 of the Nyquist wavenumber)
+  svv_above_kc = .true.  ! Q = 1 (.true.) or 0 (.false.) for |k_d| >= k_c,d (only ln(rho) has such modes)
+  svv_form     = 'entropy' ! rho, m: 'entropy' (flux form in the entropy variables, dE/dt <= 0 for any state)
+                           !         or 'linear' (-lambda(k) on m and on rho; B always gets -lambda(k))
+  svv_mass     = .true.  ! 'entropy': .true. keeps the mass fluxes; .false. drops them, so that ln(rho)
+                         ! gets no SVV and m the flux eps rho A_L u alone (dE/dt <= 0 still holds; tests only)
+  cfl_svv      = 2.0d0   ! 'entropy': dt <= cfl_svv/lambda_svv, lambda_svv by the power method (eSSPIFRK3: 2.51)
+  svv_pi_init  = 50      ! 'entropy': power iterations at the first step (one per step afterwards)
+  svv_pi_check = 100     ! 'entropy': converged power method every svv_pi_check steps; stop if dt*lambda_svv > 2.51
+/
+
+&isoth_diagnostics
+  write_intvl_1D   = 0.05d0  ! out1d/line_*.dat along the first direction with nl > 2; <= 0: none
+  write_intvl_cons = 0.d0    ! conservation.dat; 0: every step, < 0: none
+  budget           = .true.  ! budget.dat every step (extra FFTs)
+  write_intvl_planes = 0.d0  ! out2d/plane_{y0,z0}.dat of rho, u, B, zeta, D, eta; <= 0: none
+/
+
+!==============================================================================
+&initial_condition
+  !init_type = 'zero'
+  !init_type = 'single_mode'  ! &initial_condition_params: mode_type, mode, b0, b1, u1, rho0, rho1
+  !init_type = 'random'       ! &initial_condition_params: kmin, kmax, b0, b1, u1, rho0, rho1
+  !init_type = 'sound_wave'   ! &wave1d_params: dir, mode, amp, rho0, b0
+  !init_type = 'simple_wave'  ! &wave1d_params
+  init_type = 'riemann'       ! &riemann_params: R state in L/4 < xi < 3L/4, L state elsewhere,
+                              ! tanh steps of width `width` grid cells (<= 0: sharp)
+  !init_type = 'profile1d'    ! &profile1d_params: dir, table (ASCII rows xi, rho, ux, uy, uz, bx, by, bz
+                              ! at the grid points)
+  !init_type = 'restart'
+/
+
+&riemann_params
+  dir   = 'x'
+  rho_L = 1.0d0
+  rho_R = 1.0d0
+  u_L   = 2.0d0  0.0d0  0.0d0
+  u_R   = -2.0d0  0.0d0  0.0d0
+  b_L   = 0.0d0  0.0d0  0.0d0
+  b_R   = 0.0d0  0.0d0  0.0d0
+  width = 1.0d0
+/
+
+!==============================================================================
+!  Forcing is not supported in this model: driven = .true. stops the run
+&force
+  driven = .false.
+/
+
+!==============================================================================
+&terminate
+  max_wall_time   = 1.0             ! The simulation will be terminated when the wall
+                                    ! time exceeds this value (in the unit of hour).
+
+  terminate_file_name = 'terminate' ! The simulation will be terminated when the file
+                                    ! named this value is created in the root directory
+                                    ! in the middle of simulaiton.
+/
+
+!==============================================================================
+&diagnostics_parameters
+  write_intvl         = 1.0d+10  ! output every this value.
+  write_intvl_2D      = 0.0d0    ! output every this value.
+  write_intvl_3D      = 0.0d0    ! output every this value.
+/
+
+!==============================================================================
+&restart_parameters
+  save_restart_intvl = 1.0d+10    ! save every this value.
+  restart_dir = './restart/'
+/
+
+!==============================================================================
+!  MHD_COMP_ISOTH supports P_m = P_s = 1 only; P_fft (the number of GPUs)
+!  must divide nlx and nly
+&parallelization
+  P_m = 1
+  P_s = 1
+/

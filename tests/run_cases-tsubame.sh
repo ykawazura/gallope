@@ -41,7 +41,7 @@ for c in ${CASES//+/ }; do
     IFS=: read -r dir np model <<< "${c}"
     ppn=$(( np < GPN ? np : GPN ))
     ( cd "${dir}" || exit 1
-      mkdir -p restart out2d out3d
+      mkdir -p restart out1d out2d out3d
       t0=$(date +%s)
       mpirun -n ${np} -npernode ${ppn} -x LD_LIBRARY_PATH --mca coll_hcoll_enable 0 \
           ${ROOT}/batch/gpu-bind-tsubame.sh ${ROOT}/bin/gallope-${model} > out.std 2>&1

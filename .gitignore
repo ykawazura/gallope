@@ -17,6 +17,10 @@ out3d/
 **/__pycache__/
 diagnostics/*/fig_*/
 
+# MHD_COMP_ISOTH paper figures over Calliope's and their inputs fetched from TSUBAME (tests/MHD_COMP_ISOTH/plot_overlay.py)
+tests/MHD_COMP_ISOTH/fig/
+tests/MHD_COMP_ISOTH/runs_gallope/
+
 # macOS junk
 .DS_Store
 
