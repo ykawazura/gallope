@@ -7,12 +7,15 @@ Set up, check and list the MHD_COMP_ISOTH test cases of Calliope for runs with G
   make_cases.py check    --gallope G --runroot R [--only GLOB ...]
   make_cases.py list     --runroot R [--folder F ...] [--status S ...] [--max-ngpu N] [--long]
   make_cases.py stop     --runroot R
+  make_cases.py folders  --calliope C --runroot R [--apply]
   make_cases.py ngpu-map --calliope C [--runroot R] [-o FILE]
 
 C is the Calliope repository (its cases are C/tests/MHD_COMP_ISOTH/<Folder>/<stage>/<batch>/.../<case>, Folder
 one of FOLDERS), R the run root and G the Gallope repository. A case runs in R/<stage>/<batch>/.../<case>, the
 path of Calliope's runs/ (tests/MHD_COMP_ISOTH/runs, which can be a symbolic link to R, so that the analysis
-scripts of Calliope find the runs at their default place).
+scripts of Calliope find the runs at their default place). After `folders`, R/<stage>/.../<case> is a relative
+symbolic link to the case in T/<Folder>/<stage>/.../<case> (T the parent of R), as in Calliope on ps1; every
+command takes such links for cases.
 
 setup     copies the input files of each case (INPUTS) to its run directory and writes
             ngpu           the number of GPUs (ranks) of the case, from ngpu_rule; an existing file is kept
@@ -36,6 +39,12 @@ stop      sets t_end (calliope.in and the file t_end) of the cases of CALLIOPE_S
           before t_end, to the t at which Calliope stopped; the nominal files go to calliope.in.nominal and
           t_end.nominal (setup then compares the Calliope files with these). Only cases that have never run
           are changed; exit status 1 on a case that has run or was stopped at another t.
+folders   moves each case R/<run> that is a directory to T/<calliope_case> (R must be T/runs), leaves the
+          relative link R/<run> -> T/<calliope_case>, and makes in T the symbolic links of the folders of C (the
+          summaries in runs/ that the figure scripts read). Dry run unless --apply; links already made and cases
+          already moved are skipped, a path that exists otherwise is a conflict (exit status 1, nothing moved).
+          --apply writes T/attic/folders_<time>/{moves.txt,links.txt,rollback.sh}; `DRY=0 sh rollback.sh` undoes it.
+          The moves are renames, which fail across file systems (or Lustre projects) instead of copying.
 ngpu-map  writes the table of ngpu_rule (Markdown).
 """
 import argparse
@@ -46,9 +55,11 @@ import glob
 import math
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
+import time
 
 FOLDERS = ['Euler1D', 'MHD1D', 'Smooth_wave', 'OT2D', 'Turb3D']
 INPUTS = ['calliope.in', 'nproc', 'case.json', 'generated.md5', 't_end']
@@ -134,18 +145,23 @@ def selected(run, only, tpath=None):
 
 
 def run_dirs(runroot, only=None):
-    """Run directories (with calliope.in) under the run root, as paths relative to it."""
+    """Run directories under the run root, as paths relative to it: directories with calliope.in and symbolic
+    links to such directories (the links that `folders` leaves). Other links are not followed."""
     R = os.path.abspath(runroot)
     out = []
     for root, dirs, files in os.walk(R):
         dirs.sort()
         if 'calliope.in' in files:
             dirs[:] = []
-            run = os.path.relpath(root, R)
-            if selected(run, only, read(os.path.join(root, 'calliope_case'))):
-                out.append(run)
+            found = [root]
         else:
             dirs[:] = [d for d in dirs if not d.startswith('chunk_')]
+            found = [os.path.join(root, d) for d in dirs
+                     if os.path.islink(os.path.join(root, d)) and os.path.isfile(os.path.join(root, d, 'calliope.in'))]
+        for d in found:
+            run = os.path.relpath(d, R)
+            if selected(run, only, read(os.path.join(d, 'calliope_case'))):
+                out.append(run)
     return sorted(out)
 
 
@@ -524,6 +540,108 @@ def cmd_stop(a):
     return bad
 
 
+# ---------------------------------------------------------------------------------------------------- folders
+ROLLBACK = '''#!/bin/sh
+# Undo `make_cases.py folders --apply` of this directory (dry run unless DRY=0). Paths are relative to T.
+# moves.txt "src dst rel", last line first: unlink the link T/src if it reads rel, move T/dst back to T/src.
+# links.txt "path target": unlink T/path if it reads target. Then remove the empty directories of the folders.
+T=%(T)s
+A=$(cd "$(dirname "$0")" && pwd)
+cd "$T" || exit 1
+run() { if [ "${DRY:-1}" = 0 ]; then "$@" || exit 1; else echo "dry: $*"; fi; }
+while read -r p t; do
+  if [ -L "$p" ] && [ "$(readlink "$p")" = "$t" ]; then run unlink "$p"; else echo "SKIP link $p"; fi
+done < "$A/links.txt"
+reverse() { awk '{l[NR] = $0} END {for (i = NR; i > 0; i--) print l[i]}' "$1"; }
+reverse "$A/moves.txt" | while read -r src dst rel; do
+  if [ -L "$src" ]; then
+    [ "$(readlink "$src")" = "$rel" ] || { echo "SKIP $src: link reads $(readlink "$src")"; continue; }
+    run unlink "$src"
+  elif [ -e "$src" ]; then
+    echo "SKIP $src: exists and is no link"; continue
+  fi
+  run mv "$dst" "$src"
+done || exit 1
+for F in %(FOLDERS)s; do [ -d "$F" ] && run find "$F" -depth -type d -empty -delete; done
+echo "rollback: $( [ "${DRY:-1}" = 0 ] && echo done || echo 'dry run (DRY=0 to apply)')"
+'''
+
+
+def cmd_folders(a):
+    """Move the cases of the run root R (= T/runs) to T/<Folder>/<run> and leave relative links in R, as on ps1."""
+    R = os.path.abspath(a.runroot)
+    T = os.path.dirname(R)
+    if os.path.basename(R) != 'runs' or os.path.islink(R):
+        sys.exit('folders: the run root must be a directory named runs (the folders go next to it): %s' % R)
+    moves, linked, bad = [], 0, []
+    for root, dirs, files in os.walk(R):
+        dirs.sort()
+        if 'calliope.in' in files:
+            dirs[:] = []
+            run = os.path.relpath(root, R)
+            tpath = read(os.path.join(root, 'calliope_case'))
+            if tpath.split('/')[0] not in FOLDERS or tpath.split('/', 1)[-1] != run:
+                bad.append('%s: calliope_case %r is not <Folder>/%s' % (run, tpath, run))
+            elif os.path.lexists(os.path.join(T, tpath)):
+                bad.append('%s: %s exists' % (run, tpath))
+            else:
+                moves.append(('runs/' + run, tpath, os.path.relpath(os.path.join(T, tpath), os.path.dirname(root))))
+        else:
+            dirs[:] = [d for d in dirs if not d.startswith('chunk_')]
+            linked += sum(os.path.islink(os.path.join(root, d)) and os.path.isfile(os.path.join(root, d, 'calliope.in'))
+                          for d in dirs)
+    links, same = [], 0
+    C = tests_dir(a.calliope)
+    for F in FOLDERS:
+        for root, dirs, files in os.walk(os.path.join(C, F)):
+            for n in sorted(dirs + files):
+                if not os.path.islink(os.path.join(root, n)):
+                    continue
+                p, t = os.path.relpath(os.path.join(root, n), C), os.readlink(os.path.join(root, n))
+                clash = [d for _, d, _ in moves if p == d or p.startswith(d + '/') or d.startswith(p + '/')]
+                if clash:
+                    bad.append('%s overlaps the case moved to %s' % (p, clash[0]))
+                elif not os.path.lexists(os.path.join(T, p)):
+                    links.append((p, t))
+                elif os.path.islink(os.path.join(T, p)) and os.readlink(os.path.join(T, p)) == t:
+                    same += 1
+                else:
+                    bad.append('%s exists and is not a link to %s' % (p, t))
+    count = collections.Counter(d.split('/')[0] for _, d, _ in moves)
+    print('folders: %s: %d cases to move (%s), %d already moved; %d summary links to make, %d already there'
+          % (T, len(moves), ', '.join('%s %d' % (F, count[F]) for F in FOLDERS), linked, len(links), same))
+    for m in moves[:3]:
+        print('  %s -> %s (link %s)' % m)
+    for b in bad:
+        print('CONFLICT: %s' % b)
+    if bad or not a.apply or not (moves or links):
+        if not bad and not a.apply and (moves or links):
+            print('dry run; --apply to move')
+        return 1 if bad else 0
+    A = os.path.join(T, 'attic', 'folders_' + time.strftime('%Y%m%d-%H%M%S'))
+    os.makedirs(A)
+    with open(os.path.join(A, 'rollback.sh'), 'w') as f:
+        f.write(ROLLBACK % {'T': shlex.quote(T), 'FOLDERS': ' '.join(FOLDERS)})
+    os.chmod(os.path.join(A, 'rollback.sh'), 0o755)
+    with open(os.path.join(A, 'moves.txt'), 'w') as log:
+        for src, dst, rel in moves:
+            os.makedirs(os.path.dirname(os.path.join(T, dst)), exist_ok=True)
+            os.rename(os.path.join(T, src), os.path.join(T, dst))   # EXDEV across file systems: no copy
+            log.write('%s %s %s\n' % (src, dst, rel))
+            log.flush()
+            os.symlink(rel, os.path.join(T, src))
+    with open(os.path.join(A, 'links.txt'), 'w') as log:
+        for p, t in links:
+            os.makedirs(os.path.dirname(os.path.join(T, p)), exist_ok=True)
+            os.symlink(t, os.path.join(T, p))
+            log.write('%s %s\n' % (p, t))
+    broken = [p for p, _ in links if not os.path.exists(os.path.join(T, p))]
+    for p in broken:
+        print('BROKEN summary link: %s' % p)
+    print('folders: moved %d cases, made %d summary links; record and rollback.sh in %s' % (len(moves), len(links), A))
+    return 1 if broken else 0
+
+
 # --------------------------------------------------------------------------------------------------- ngpu-map
 def cmd_ngpu_map(a):
     cases = calliope_cases(a.calliope)
@@ -586,6 +704,10 @@ def main():
     s.add_argument('--long', action='store_true', help='also print ngpu, cost, folder and exit_status')
     s = sp.add_parser('stop')
     s.add_argument('--runroot', required=True)
+    s = sp.add_parser('folders')
+    s.add_argument('--calliope', required=True)
+    s.add_argument('--runroot', required=True)
+    s.add_argument('--apply', action='store_true', help='move (default: dry run)')
     s = sp.add_parser('ngpu-map')
     s.add_argument('--calliope', required=True)
     s.add_argument('--runroot')
@@ -594,7 +716,7 @@ def main():
     if a.cmd == 'list' and not a.status:
         a.status = ['all']
     cmds = {'setup': cmd_setup, 'ic': cmd_ic, 'check': cmd_check, 'list': cmd_list, 'stop': cmd_stop,
-            'ngpu-map': cmd_ngpu_map}
+            'folders': cmd_folders, 'ngpu-map': cmd_ngpu_map}
     if a.cmd not in cmds:
         p.print_help()
         return 2

@@ -21,21 +21,34 @@ Each script documents its options in its header or docstring.
 
 ## Layout
 
+The runs have the layout of Calliope's `tests/MHD_COMP_ISOTH` on ps1:
+
 ```
-RUNROOT/<stage>/<batch>/[<sub>/]<case>/      e.g. RUNROOT/stage1_es/shock/Sod_N256/
+T/<Folder>/<stage>/<batch>/[<sub>/]<case>/    the case, e.g. T/Euler1D/stage1_es/shock/Sod_N256/
+T/<Folder>/...                                symbolic links to the summaries in runs/ (as in Calliope's folders)
+T/runs/<stage>/<batch>/[<sub>/]<case>         relative symbolic link to the case, e.g. ../../../Euler1D/stage1_es/shock/Sod_N256
+T/runs/...                                    summaries of the batches, judge/, job logs, case lists
 ```
 
-The path is the case's path in Calliope's `tests/MHD_COMP_ISOTH` without the folder, i.e. the path under
-`tests/MHD_COMP_ISOTH/runs/` that the analysis scripts use (`stages/paths.py`). On TSUBAME:
+`T/runs` is the run root (RUNROOT). Its paths are those under `tests/MHD_COMP_ISOTH/runs/` that Calliope's
+analysis scripts use (`stages/paths.py`). The cases are first set up and run under RUNROOT and are moved to
+their folders with `make_cases.py folders`; every command of `make_cases.py` and the jobs take the links for
+cases. On TSUBAME:
 
 ```
 GALLOPE=~/gallope_isoth                    # built: bin/gallope-MHD_COMP_ISOTH
 CALLIOPE_ROOT=~/work/calliope_1d924a9
-RUNROOT=/gs/bs/tgh-26IDS/ua07691/isoth_runs
+T=/gs/bs/tgh-26IDS/ua07691/MHD_COMP_ISOTH
+RUNROOT=$T/runs                            # also /gs/bs/tgh-26IDS/ua07691/isoth_runs (a symbolic link, the path in the records)
 PY=~/work/venv-isoth/bin/python            # numpy, and what Calliope's stages/regen_inputs.py imports
 MC=$GALLOPE/tests/MHD_COMP_ISOTH/make_cases.py
 ln -s $RUNROOT $CALLIOPE_ROOT/tests/MHD_COMP_ISOTH/runs     # if not there yet
 ```
+
+`$GALLOPE/tests/MHD_COMP_ISOTH/{Euler1D,MHD1D,Smooth_wave,OT2D,Turb3D,runs}` are symbolic links to `$T/...`,
+so the runs also appear next to the scripts, as on ps1. The data stay in the group storage `/gs/bs/tgh-26IDS`
+(Lustre project 103190): a rename into another project (`~/work` is project 7691) or another file system
+fails, and `folders` stops there instead of copying.
 
 ## Setup (once)
 
@@ -43,6 +56,7 @@ ln -s $RUNROOT $CALLIOPE_ROOT/tests/MHD_COMP_ISOTH/runs     # if not there yet
 $PY $MC setup --calliope $CALLIOPE_ROOT --runroot $RUNROOT
 $PY $MC ic    --calliope $CALLIOPE_ROOT --runroot $RUNROOT --python $PY
 $PY $MC check --runroot $RUNROOT
+$PY $MC folders --calliope $CALLIOPE_ROOT --runroot $RUNROOT            # dry run; add --apply to move
 ```
 
 - `setup` copies `calliope.in`, `nproc`, `case.json`, `generated.md5`, `t_end` and writes `ngpu` (kept if it
@@ -56,6 +70,13 @@ $PY $MC check --runroot $RUNROOT
 - `check` translates every `calliope.in` as the job does and checks every group and key against the
   namelists declared in Gallope's sources. Gallope reads namelists with `iostat`, so an unknown key would
   otherwise leave its whole group at the defaults without a message. It must print `check: PASS`.
+- `folders` moves every case that is a directory in RUNROOT to `T/<calliope_case>` and leaves the relative
+  link in its place, then makes the links of Calliope's folders to the summaries. It moves nothing if a
+  target path exists (a conflict, exit status 1) and skips what is already moved, so it can be repeated, e.g.
+  after more cases were set up. `--apply` records the moves in `T/attic/folders_<time>/` with a
+  `rollback.sh` that undoes them (`DRY=0 sh rollback.sh`; without `DRY=0` it prints what it would do). On
+  TSUBAME it was applied after all runs had ended (`validation_tsubame.md` still names the paths under
+  `isoth_runs`, which resolve through the links).
 
 ## Running
 
