@@ -47,6 +47,7 @@ Set `MODEL` in `Makefile.in`:
 | `RRMHD`        | Rotating reduced MHD (RMHD + compressive `upa`, `bpa`; shear `q`, background gradients `kappa_b`, `kappa_p`) |
 | `HRMHD`        | Hall reduced MHD (kinetic/inertial Alfvén waves; `phi`, `psi`, `upa`, `bpa`) |
 | `EMHD`         | Electron MHD with electron inertia (`bx`, `by`, `bz`) |
+| `MHD_COMP_ISOTH` | Isothermal compressible MHD (`lnrho`, `mx`, `my`, `mz`, `bx`, `by`, `bz`); shocks by shock viscosity and spectral vanishing viscosity; `eSSPIFRK3` only; `P_m = P_s = 1` and the GPU count must divide `nlx` and `nly` |
 
 
 ---
@@ -74,7 +75,7 @@ Set the target environment (`arch`) and the physics model (`MODEL`).
 
 ```make
 arch = miyabi           # Loads configuration from arch/miyabi.in
-MODEL = MHD_INCOMP      # Options: MHD_INCOMP, RMHD, KRMHD, RRMHD, HRMHD, EMHD
+MODEL = MHD_INCOMP      # Options: MHD_INCOMP, RMHD, KRMHD, RRMHD, HRMHD, EMHD, MHD_COMP_ISOTH
 ````
 
 ### 2. Configure `arch/<arch>.in`
